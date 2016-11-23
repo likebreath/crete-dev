@@ -2870,6 +2870,10 @@ void Executor::terminateStateOnError(ExecutionState &state,
                                      const llvm::Twine &messaget,
                                      const char *suffix,
                                      const llvm::Twine &info) {
+#if defined(CRETE_CONFIG)
+  state.print_stack();
+#endif
+
   std::string message = messaget.str();
   static std::set< std::pair<Instruction*, std::string> > emittedErrors;
   Instruction * lastInst;
