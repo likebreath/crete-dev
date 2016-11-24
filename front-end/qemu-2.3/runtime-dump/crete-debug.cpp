@@ -231,15 +231,17 @@ void crete_print_helper_function_name(uint64_t func_addr)
     cerr << "helper function: " << func_name;
 }
 
-void dump_IR(void* void_s, unsigned long long ir_tb_pc) {
+void dump_IR(void *void_s, void *tb_ptr) {
     TCGContext *s = (TCGContext *)void_s;
+    TranslationBlock *tb = (TranslationBlock *)tb_ptr;
 
     char file_name[] = "tb-ir.txt";
     FILE *f = fopen(file_name, "a");
     assert(f);
 
     fprintf(f, "qemu-ir-tb-%llu-%p:\n",
-            (unsigned long long )(nb_captured_llvm_tb - 1), (void *)(uint64_t)ir_tb_pc);
+            (unsigned long long )(nb_captured_llvm_tb - 1), (void *)(uint64_t)tb->pc);
+    fprintf(f, "last-opc = 0x%x\n", tb->last_opc);
     tcg_dump_ops_file(s, f);
     fprintf(f, "\n");
 

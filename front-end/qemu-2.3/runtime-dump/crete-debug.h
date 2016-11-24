@@ -27,7 +27,7 @@ void crete_print_x86_cpu_regs(uint64_t offset, uint64_t size, char *buf);
 void print_x86_all_cpu_regs(void *qemuCpuState);
 void crete_print_helper_function_name(uint64_t func_addr);
 
-void dump_IR(void *, unsigned long long);
+void dump_IR(void *, void *);
 void print_guest_memory(void *env_cpuState, uint64_t addr, int len);
 
 void crete_add_c_cpuState_offset(uint64_t offset, uint64_t size);

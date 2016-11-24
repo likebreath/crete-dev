@@ -131,7 +131,7 @@ void RuntimeEnv::dump_tloCtx(void *cpuState, TranslationBlock *tb, uint64_t cret
     tb->index_captured_llvm_tb = nb_captured_llvm_tb++;
 
     //for debug purpsoe, qemu ir
-//    dump_IR(s, tb->pc);
+    dump_IR(s, tb);
 }
 
 void RuntimeEnv::addInitialCpuState()
