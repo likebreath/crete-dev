@@ -4509,6 +4509,9 @@ void Executor::handleQemuRaiseInterrupt2(klee::Executor* executor,
   		  std::vector<klee::ref<klee::Expr> > &args) {
     assert(args.size() == 5);
 
+    state->print_stack();
+    assert(0 && "[Crete Error] Interrupt should be invisible from klee side.\n");
+
 	// Get the concrete value of each arguments in the current execution of klee
 	ref<Expr> exp_intno = args[1];
 	ref<Expr> exp_is_int= args[2];

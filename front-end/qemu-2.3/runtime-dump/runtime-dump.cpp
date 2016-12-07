@@ -554,10 +554,8 @@ void RuntimeEnv::reverseTBDump(void *qemuCpuState)
 #if defined(CRETE_DEBUG)
     cerr << "reverseTBDump(): \n"
          << dec << "rt_dump_tb_count = " << rt_dump_tb_count
-         << ", m_prolog_regs.size() = " << m_prolog_regs.size()
          << ", m_debug_memoSyncTables.size() = " << m_debug_memoSyncTables.size()
          << ", m_debug_memoMergePoints.size() = " << m_debug_memoMergePoints.size()
-         <<", m_tbExecSequ.size() = " << m_tbExecSequ.size()
          << ", m_interruptStates.size() = " << m_interruptStates.size() << endl;
 #endif //#if defined(CRETE_DEBUG)
 
@@ -612,7 +610,10 @@ void RuntimeEnv::verifyDumpData() const
 
 string RuntimeEnv::get_tcoHelper_name(uint64_t func_addr) const
 {
-
+    if(m_debug_helper_names.empty())
+    {
+        return string();
+    }
     map<uint64_t, string>::const_iterator it = m_debug_helper_names.find(func_addr);
     assert(it != m_debug_helper_names.end());
     return it->second;

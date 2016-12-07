@@ -223,17 +223,17 @@ bool Analyzer::is_guest_mem_symbolic(uint64_t addr, uint64_t size, uint64_t data
 
 #if defined(CRETE_DBG_TA)
             if(is_in_list_crete_dbg_ta_guest_addr(addr+i))
-                fprintf(stderr, "is_guest_mem_symbolic() is true for address %p\n",
-                        (void *)(addr+i));
+                fprintf(stderr, "is_guest_mem_symbolic() is true for address %p, value = %d\n",
+                        (void *)(addr+i), guest_mem_[addr+i]);
 #endif
         } else {
-            guest_mem_.erase(it);
-
 #if defined(CRETE_DBG_CK)
             fprintf(stderr, "[CRETE Warning] TA: is_guest_mem_symbolic() "
-                    "potential under-taint-analysis: (%p) is changed "
-                    "while is tainted.\n", (void *)(addr + i));
+                    "potential under-taint-analysis: (%p) is changed (from %d to %d)"
+                    "while is tainted.\n", (void *)(addr + i), guest_mem_[addr+i], byte_value);
 #endif
+
+            guest_mem_.erase(it);
         }
     }
 
@@ -247,8 +247,8 @@ void Analyzer::make_guest_mem_symbolic(uint64_t addr, uint64_t size, uint64_t da
 
 #if defined(CRETE_DBG_TA)
         if(is_in_list_crete_dbg_ta_guest_addr(addr+i))
-            fprintf(stderr, "make_guest_mem_symbolic() for address %p\n",
-                    (void *)(addr+i));
+            fprintf(stderr, "make_guest_mem_symbolic() for address %p, value = %d\n",
+                    (void *)(addr+i), (int)guest_mem_[addr+i]);
 #endif
     }
 
