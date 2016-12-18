@@ -1796,6 +1796,13 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
         else
             assert(0);
     }
+
+    if(CRETE_DBG_GEN_PRINT_TB_RANGE(rt_dump_tb_count))
+    {
+        crete_dbg_enable_stderr_stdout();
+    } else {
+        crete_dbg_disable_stderr_stdout();
+    }
 #endif
 
 #if defined(CRETE_DBG_MEM)

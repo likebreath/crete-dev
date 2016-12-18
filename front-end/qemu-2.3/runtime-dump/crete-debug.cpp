@@ -905,3 +905,51 @@ void crete_verify_cpuState_offset_c_cxx()
     runtime_env->init_debug_cpuState_offsets(cxx_cpuState_offset);
 }
 #endif //#if defined(CRETE_CROSS_CHECK)
+
+static bool disabled_stderr_stdout = false;
+static int fd_stdout = -1;
+static fpos_t pos_stdout;
+static int fd_stderr = -1;
+static fpos_t pos_stderr;
+
+void crete_dbg_disable_stderr_stdout(void)
+{
+    if(disabled_stderr_stdout)
+        return;
+
+    fflush(stdout);
+    fgetpos(stdout, &pos_stdout);
+    fd_stdout = dup(fileno(stdout));
+    freopen("/dev/null", "w", stdout);
+
+    fflush(stderr);
+    fgetpos(stderr, &pos_stderr);
+    fd_stderr = dup(fileno(stderr));
+    freopen("/dev/null", "w", stderr);
+
+    disabled_stderr_stdout = true;
+}
+
+void crete_dbg_enable_stderr_stdout(void)
+{
+    if(!disabled_stderr_stdout)
+        return;
+
+    fflush(stdout);
+    dup2(fd_stdout, fileno(stdout));
+    close(fd_stdout);
+    clearerr(stdout);
+    fsetpos(stdout, &pos_stdout);        /* for C9X */
+
+    fflush(stderr);
+    dup2(fd_stderr, fileno(stderr));
+    close(fd_stderr);
+    clearerr(stderr);
+    fsetpos(stderr, &pos_stderr);        /* for C9X */
+
+    disabled_stderr_stdout = false;
+
+    fprintf(stderr, "crete_dbg_enable_stderr_stdout()\n");
+
+}
+

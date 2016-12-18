@@ -46,8 +46,9 @@ extern "C" {
 #define CRETE_DBG_INT(x) do { } while(0)
 #endif
 
-#define CRETE_DBG_REG hflags
-#define CRETE_GET_STRING(x) "hflags"
+#define CRETE_DBG_REG cc_src
+#define CRETE_GET_STRING(x) "cc_src"
+#define CRETE_DBG_GEN_PRINT_TB_RANGE(x) ((x > 145) && (x < 150))
 
 int is_in_list_crete_dbg_tb_pc(uint64_t tb_pc);
 int is_in_list_crete_dbg_ta_guest_addr(uint64_t addr);
@@ -64,6 +65,9 @@ void print_guest_memory(void *env_cpuState, uint64_t addr, int len);
 void crete_add_c_cpuState_offset(uint64_t offset, uint64_t size);
 
 void crete_verify_cpuState_offset_c_cxx(void);
+
+void crete_dbg_disable_stderr_stdout(void);
+void crete_dbg_enable_stderr_stdout(void);
 
 #ifdef __cplusplus
 }
