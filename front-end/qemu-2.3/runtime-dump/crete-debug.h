@@ -11,7 +11,6 @@ extern "C" {
 
 //#define CRETE_CROSS_CHECK // Enable cross check
 
-//#define CRETE_DBG_CK    // Debug cross-check
 //#define CRETE_DBG_TA    // Debug taint-analysis
 //#define CRETE_DBG_MEM   // Debug memory usage
 //#define CRETE_DBG_MEM_MONI // Debug Memory monitoring

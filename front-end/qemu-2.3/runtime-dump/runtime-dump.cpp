@@ -1190,10 +1190,10 @@ void RuntimeEnv::checkEmptyCPUStateSyncTables()
         if(it->first && it->second.empty()) {
             it->first = false;
 
-#if defined(CRETE_DBG_CK)
+            CRETE_DBG_GEN(
             fprintf(stderr, "CPUState is not changed between tb-%lu, and tb-%lu\n",
                     tb_count - 1, tb_count);
-#endif
+            );
         }
 
         ++tb_count;
