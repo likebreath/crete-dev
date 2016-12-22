@@ -1525,9 +1525,9 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
     f_crete_enabled = is_target_pid && !is_processing_interrupt;
 
     // 3. manual code selection
-    //bool is_user_code = (tb->pc < USER_CODE_RANGE);
-    //bool manual_code_selection_passed = is_user_code;
-    bool manual_code_selection_passed = true;
+    bool is_user_code = (tb->pc < USER_CODE_RANGE);
+    bool manual_code_selection_passed = is_user_code;
+//    bool manual_code_selection_passed = true;
 
     // 4. the current tb is pre-interested, if f_crete_enabled and pass manual code selection
     bool tb_pre_interested = f_crete_enabled && manual_code_selection_passed;
@@ -1747,7 +1747,7 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
 //    }
 
 #if defined(CRETE_DEBUG_GENERAL)
-    if(dbg_input_static_flag_interested_tb)
+    if(!dbg_input_static_flag_interested_tb)
     {
         fprintf(stderr, "0 - [POST] uninterested-pre tb-%lu (pc-%p): pre uninterested. ",
                 rt_dump_tb_count - 1, (void *)(uint64_t)rt_dump_tb->pc);
