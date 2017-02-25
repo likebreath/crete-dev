@@ -15,3 +15,15 @@ ExternalProject_Add(
 	BUILD_COMMAND make OPTIMIZE=-O2 CFLAGS_M32= install -j7
 	INSTALL_COMMAND ""
 	)
+
+ExternalProject_Add(
+	stp-2.1.2
+
+        GIT_REPOSITORY https://github.com/stp/stp.git
+        GIT_TAG "2.1.2"
+
+        CMAKE_ARGS -DBUILD_SHARED_LIBS:BOOL=OFF -DENABLE_PYTHON_INTERFACE:BOOL=OFF
+
+	UPDATE_COMMAND ""
+	INSTALL_COMMAND ""
+	)
