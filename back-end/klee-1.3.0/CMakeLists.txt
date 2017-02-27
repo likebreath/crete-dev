@@ -30,16 +30,20 @@ ExternalProject_Add(
   BUILD_COMMAND
   . ./crete_klee_prebuild.sh  &&
   make -j7
+  "CXXFLAGS=-I${CMAKE_SOURCE_DIR}/lib/include -I${CMAKE_BINARY_DIR}/lib/boost/boost-prefix/src/boost_1_59_0"
+  "LDFLAGS=-L${CMAKE_BINARY_DIR}/bin -L${CMAKE_BINARY_DIR}/bin/boost"
 
   INSTALL_COMMAND ln -sf ${CMAKE_CURRENT_SOURCE_DIR}/Release+Asserts/bin/klee ${CMAKE_BINARY_DIR}/bin/crete-klee-1.3.0
   )
 
-add_dependencies(klee-1.3.0 stp-2.1.2)
+add_dependencies(klee-1.3.0 stp-2.1.2 crete_test_case boost)
 
 add_custom_target(klee-1.3.0-remake ALL
   COMMAND
   . ./crete_klee_prebuild.sh &&
   make -j7
+  "CXXFLAGS=-I${CMAKE_SOURCE_DIR}/lib/include -I${CMAKE_BINARY_DIR}/lib/boost/boost-prefix/src/boost_1_59_0"
+  "LDFLAGS=-L${CMAKE_BINARY_DIR}/bin -L${CMAKE_BINARY_DIR}/bin/boost"
 
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   DEPENDS klee-1.3.0)
