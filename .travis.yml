@@ -84,6 +84,5 @@ before_install:
 
 script:
     # Build CRETE
-    - make stp-2.1.2 -j5
-    - make klee-1.3.0
-    - make klee-1.3.0-remake
+    - make boost -j7
+    - make all

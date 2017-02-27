@@ -39,7 +39,7 @@ add_dependencies(klee-1.3.0 stp-2.1.2)
 add_custom_target(klee-1.3.0-remake ALL
   COMMAND
   . ./crete_klee_prebuild.sh &&
-  make -j7 && make check
+  make -j7
 
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   DEPENDS klee-1.3.0)
