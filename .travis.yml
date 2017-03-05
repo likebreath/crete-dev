@@ -84,5 +84,5 @@ before_install:
 
 script:
     # Build CRETE
-    - make boost -j7
-    - make all
+    - make boost
+    - make -j7
