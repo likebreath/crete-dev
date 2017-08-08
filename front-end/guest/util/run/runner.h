@@ -37,6 +37,8 @@ private:
     boost::filesystem::path sandbox_dir_;
     boost::filesystem::path environment_path_;
     bool stopped_;
+
+    bool m_kernel_mode;
 };
 
 } // namespace crete
