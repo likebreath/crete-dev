@@ -47,6 +47,8 @@ private:
     fs::path m_exploitable_out;
     fs::path m_exploitable_script;
 
+    bool m_kernel_mode;
+
 public:
     CreteReplay(int argc, char* argv[]);
 

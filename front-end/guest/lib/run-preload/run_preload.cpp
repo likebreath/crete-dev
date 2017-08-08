@@ -234,6 +234,13 @@ static inline void crete_preload_initialize(int argc, char**& argv)
     // Should terminate program while being launched as prime
     update_proc_maps();
 
+    if(std::getenv(CRETE_KERNEL_MODE_ENV))
+    {
+        fprintf(stderr, "%s is set, and skipping crete_prealod_initialize()\n",
+                CRETE_KERNEL_MODE_ENV);
+        return;
+    }
+
     atexit(crete_capture_end);
     // Need to call crete_capture_begin before make_concolics, or they won't be captured.
     crete_capture_begin();

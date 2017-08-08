@@ -24,7 +24,8 @@ CreteReplay::CreteReplay(int argc, char* argv[]) :
     m_ops_descr(make_options()),
     m_cwd(fs::current_path()),
     m_init_sandbox(true),
-    m_enable_log(false)
+    m_enable_log(false),
+    m_kernel_mode(false)
 {
     process_options(argc, argv);
     setup_launch();
@@ -52,6 +53,9 @@ po::options_description CreteReplay::make_options()
         ("log,l", po::bool_switch(), "enable log the output of replayed programs")
         ("exploitable-check,x", po::value<fs::path>(), "path to the output of exploitable-check")
         ("explo-check-script,r", po::value<fs::path>(), "path to the script to check exploitable with gdb replay")
+
+        ("kernel,k", po::bool_switch(), "replay test cases for kernel modules")
+
         ;
 
     return desc;
@@ -181,6 +185,14 @@ void CreteReplay::process_options(int argc, char* argv[])
         }
         m_exploitable_script = p;
     }
+
+    if(m_var_map.count("kernel"))
+    {
+        bool input = m_var_map["kernel"].as<bool>();
+
+        m_kernel_mode = input;
+    }
+
 
     if(!fs::exists(m_exec))
     {
@@ -492,7 +504,11 @@ void CreteReplay::setup_launch()
     } else {
         m_launch_ctx.environment = bp::self::get_environment();
     }
-    m_launch_ctx.environment.insert(bp::environment::value_type("LD_PRELOAD", "libcrete_replay_preload.so"));
+    if(!m_kernel_mode)
+    {
+        m_launch_ctx.environment.insert(bp::environment::value_type("LD_PRELOAD", "libcrete_replay_preload.so"));
+    }
+
     m_launch_ctx.environment.erase("PWD");
     m_launch_ctx.environment.insert(bp::environment::value_type("PWD", m_launch_ctx.work_directory));
 
@@ -655,6 +671,44 @@ static vector<string> get_files_ordered(const fs::path& input)
     return file_list;
 }
 
+static void write_current_tc_elements(const fs::path& input_tc, const fs::path& out_dir)
+{
+    fs::remove_all(out_dir);
+    fs::create_directories(out_dir);
+
+    ifstream ifs(input_tc.string().c_str());
+    if(!ifs.good())
+    {
+        BOOST_THROW_EXCEPTION(Exception() <<
+                err::file_open_failed(input_tc.string()));
+    }
+    TestCase tc = read_test_case(ifs);
+    ifs.close();
+
+    for(vector<TestCaseElement>::const_iterator tc_iter = tc.get_elements().begin();
+            tc_iter !=  tc.get_elements().end();
+            ++tc_iter)
+    {
+        uint32_t size = tc_iter->data_size;
+        string name(tc_iter->name.begin(), tc_iter->name.end());
+        vector<uint8_t> data = tc_iter->data;
+
+        assert(size == data.size());
+        assert(name.length() == tc_iter->name_size);
+
+        string output = (out_dir / name).string();
+        ofstream ofs(output.c_str());
+        if(!ofs.good())
+        {
+            BOOST_THROW_EXCEPTION(Exception() <<
+                    err::file_open_failed(output));
+        }
+
+        ofs.write((const char*)data.data(), size);
+        ofs.close();
+    }
+}
+
 void CreteReplay::replay()
 {
     init_timeout_handler();
@@ -705,8 +759,13 @@ void CreteReplay::replay()
             }
 
             // write replay_current_tc, for replay-preload to use
-            fs::remove(m_current_tc);
-            fs::copy(*it, m_current_tc);
+            if(!m_kernel_mode)
+            {
+                fs::remove(m_current_tc);
+                fs::copy(*it, m_current_tc);
+            } else {
+                write_current_tc_elements(*it, m_current_tc);
+            }
 
             // copy guest-config, for replay-preload to use
             try

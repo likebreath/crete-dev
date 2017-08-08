@@ -84,6 +84,8 @@ private:
     bool is_first_exec_;
     std::size_t proc_maps_hash_;
 
+    bool m_kernel_mode;
+
 public:
     RunnerFSM_();
 
@@ -118,6 +120,7 @@ public:
     fs::path deduce_library(const fs::path& lib,
                             const ProcReader& pr);
 
+    void set_kernel_mode(bool i) { m_kernel_mode = i;};
 private:
     void setup_launch_exec();
 
@@ -360,7 +363,8 @@ RunnerFSM_::RunnerFSM_() :
     client_(),
     pid_(-1),
     is_first_exec_(true),
-    proc_maps_hash_(0)
+    proc_maps_hash_(0),
+    m_kernel_mode(false)
 {
 }
 
@@ -540,6 +544,11 @@ void RunnerFSM_::setup_launch_exec()
     m_launch_ctx.environment.insert(bp::environment::value_type("LD_PRELOAD", "libcrete_run_preload.so"));
     m_launch_ctx.environment.erase("PWD");
     m_launch_ctx.environment.insert(bp::environment::value_type("PWD", m_launch_ctx.work_directory));
+    m_launch_ctx.environment.erase(CRETE_KERNEL_MODE_ENV);
+    if(m_kernel_mode)
+    {
+        m_launch_ctx.environment.insert(bp::environment::value_type(CRETE_KERNEL_MODE_ENV, "true"));
+    }
 
     // 4. setup the path for proc-map and guest_config_serialized
     if(m_sandbox_dir.empty())
@@ -1234,7 +1243,8 @@ bool RunnerFSM_::is_not_first_exec(const poll&)
 Runner::Runner(int argc, char* argv[]) :
     ops_descr_(make_options()),
     fsm_(boost::make_shared<RunnerFSM>()),
-    stopped_(false)
+    stopped_(false),
+    m_kernel_mode(false)
 {
     parse_options(argc, argv);
     process_options();
@@ -1254,6 +1264,7 @@ po::options_description Runner::make_options()
             ("ip,i", po::value<std::string>(), "host IP")
             ("sandbox,s", po::value<fs::path>(), "sandbox directory")
             ("environment,v", po::value<fs::path>(), "environment file")
+            ("kernel,k", po::bool_switch(), "test kernel modules")
         ;
 
     return desc;
@@ -1325,10 +1336,18 @@ void Runner::process_options()
 
         environment_path_ = p;
     }
+
+    if(var_map_.count("kernel"))
+    {
+        bool input = var_map_["kernel"].as<bool>();
+
+        m_kernel_mode = input;
+    }
 }
 
 void Runner::start_FSM()
 {
+    fsm_->set_kernel_mode(m_kernel_mode);
     fsm_->start();
 }
 
