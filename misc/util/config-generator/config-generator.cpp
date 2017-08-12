@@ -1340,6 +1340,7 @@ po::options_description CreteConfig::make_options()
             ("help,h", "displays help message")
             ("suite,s", po::value<string>(), "generate configurations for suite: klee, dase, basetools, parse-cmd")
             ("path,p", po::value<fs::path>(), "input file with sample commandline invocation for generating configs, required for parse-cmd")
+            ("test,t", po::value<fs::path>(), "test config file validate or not")
         ;
 
     return desc;
@@ -1365,6 +1366,12 @@ void CreteConfig::process_options()
     {
         cerr << m_ops_descr << endl;
         exit(0);
+    }
+
+    if(m_var_map.count("test"))
+    {
+        fs::path input_path =  m_var_map["test"].as<fs::path>();
+        config::RunConfiguration config(input_path);
     }
 
     if(m_var_map.count("suite"))
