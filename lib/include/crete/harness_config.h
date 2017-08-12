@@ -182,6 +182,8 @@ public:
     Arguments get_arguments() const;
     Files get_files() const;
     STDStream get_stdin() const;
+    std::string get_kprobe_module() const;
+    const std::vector<std::string>& get_setup_commands() const;
 
     void write(boost::property_tree::ptree& config) const;
 
@@ -200,6 +202,9 @@ protected:
     void load_files(const boost::property_tree::ptree& config_tree);
     void load_file(const boost::property_tree::ptree& config_tree);
     void load_stdin(const boost::property_tree::ptree& config_tree);
+    void load_kprobe_module(const boost::property_tree::ptree& config_tree);
+    void load_setup_commands(const boost::property_tree::ptree& config_tree);
+    void load_setup_command(const boost::property_tree::ptree& config_tree);
 
     void verify() const;
 
@@ -209,6 +214,9 @@ private:
     Arguments arguments_;
     Files files_;
     STDStream stdin_;
+
+    std::string kprobe_module_;
+    std::vector<std::string> setup_commands_;
 
     ArgMinMax argminmax_; // TODO: xxx For supporting variable number of symbolic arguments
     bool first_iteration_;
@@ -226,6 +234,9 @@ void HarnessConfiguration::save(Archive& ar, const unsigned int version) const
     ar & BOOST_SERIALIZATION_NVP(arguments_);
     ar & BOOST_SERIALIZATION_NVP(files_);
     ar & BOOST_SERIALIZATION_NVP(stdin_);
+    ar & BOOST_SERIALIZATION_NVP(kprobe_module_);
+    ar & BOOST_SERIALIZATION_NVP(setup_commands_);
+
 
     ar & BOOST_SERIALIZATION_NVP(argminmax_);
     ar & BOOST_SERIALIZATION_NVP(first_iteration_);
@@ -243,6 +254,8 @@ void HarnessConfiguration::load(Archive& ar, const unsigned int version)
     ar & BOOST_SERIALIZATION_NVP(arguments_);
     ar & BOOST_SERIALIZATION_NVP(files_);
     ar & BOOST_SERIALIZATION_NVP(stdin_);
+    ar & BOOST_SERIALIZATION_NVP(kprobe_module_);
+    ar & BOOST_SERIALIZATION_NVP(setup_commands_);
 
     ar & BOOST_SERIALIZATION_NVP(argminmax_);
     ar & BOOST_SERIALIZATION_NVP(first_iteration_);
@@ -303,6 +316,8 @@ void HarnessConfiguration::load_configuration(const boost::filesystem::path xml_
     load_arguments(crete_tree);
     load_files(crete_tree);
     load_stdin(crete_tree);
+    load_kprobe_module(crete_tree);
+    load_setup_commands(crete_tree);
 }
 
 // Parsing rules: Required and must exist
@@ -656,6 +671,18 @@ STDStream HarnessConfiguration::get_stdin() const
     return stdin_;
 }
 
+inline
+std::string HarnessConfiguration::get_kprobe_module() const
+{
+    return kprobe_module_;
+}
+
+inline
+const std::vector<std::string>& HarnessConfiguration::get_setup_commands() const
+{
+    return setup_commands_;
+}
+
 // Format: size => int, value => string, concolic => bool
 // Parsing Rules:
 //          1. Either 'value' or 'size' is required.
@@ -685,6 +712,44 @@ void HarnessConfiguration::load_stdin(const boost::property_tree::ptree& config_
         stdin_.value.resize(stdin_.size);
     }
     stdin_.size = stdin_.value.size();
+}
+
+inline
+void HarnessConfiguration::load_kprobe_module(const boost::property_tree::ptree& config_tree)
+{
+    namespace fs = boost::filesystem;
+
+    kprobe_module_ = config_tree.get<std::string>("kprobe_module", "");
+    if(kprobe_module_.empty())
+        return;
+
+    if(!fs::exists(kprobe_module_))
+        throw std::runtime_error("failed to find kprobe_module: " + kprobe_module_);
+}
+
+inline
+void HarnessConfiguration::load_setup_commands(const boost::property_tree::ptree& config_tree)
+{
+    boost::optional<const boost::property_tree::ptree&> opt_setup_commands = config_tree.get_child_optional("setup_commands");
+
+    if(!opt_setup_commands)
+    {
+        return;
+    }
+
+    BOOST_FOREACH(const boost::property_tree::ptree::value_type& v,
+                  *opt_setup_commands)
+    {
+        assert(v.first == "setup_command");
+        load_setup_command(v.second);
+    }
+}
+
+inline
+void HarnessConfiguration::load_setup_command(const boost::property_tree::ptree& config_tree)
+{
+    std::string setup_command = config_tree.get_value<std::string>();
+    setup_commands_.push_back(setup_command);
 }
 
 inline
