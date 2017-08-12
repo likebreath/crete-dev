@@ -21,6 +21,8 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/archive/binary_oarchive.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/classification.hpp>
 
 #include <unistd.h>
 #include <sys/mount.h>
@@ -91,9 +93,12 @@ public:
 
     void prime_virtual_machine();
     void prime_executable();
+    void prime_kernel_module_test() const;
     void write_configuration() const;
     void launch_executable();
     void signal_dump() const;
+
+    void execute_setup_commands() const;
 
     void process_func_filter(ProcReader& pr,
                              const config::Functions& funcs,
@@ -120,7 +125,6 @@ public:
     fs::path deduce_library(const fs::path& lib,
                             const ProcReader& pr);
 
-    void set_kernel_mode(bool i) { m_kernel_mode = i;};
 private:
     void setup_launch_exec();
 
@@ -346,17 +350,20 @@ struct start // Basically, serves as constructor.
     start(const std::string& host_ip,
           const fs::path& config,
           const fs::path& sandbox,
-          const fs::path& environment) :
+          const fs::path& environment,
+          const bool& kernel_mode) :
         host_ip_(host_ip),
         config_(config),
         sandbox_(sandbox),
-        environment_(environment)
+        environment_(environment),
+        m_kernel_mode(kernel_mode)
     {}
 
     const std::string& host_ip_;
     const fs::path& config_;
     const fs::path& sandbox_;
     const fs::path& environment_;
+    const bool& m_kernel_mode;
 };
 
 RunnerFSM_::RunnerFSM_() :
@@ -375,6 +382,8 @@ void RunnerFSM_::init(const start& ev)
 
     m_sandbox_dir = ev.sandbox_;
     m_environment = ev.environment_;
+
+    m_kernel_mode = ev.m_kernel_mode;
 }
 
 void RunnerFSM_::verify_env(const poll&)
@@ -599,6 +608,7 @@ void RunnerFSM_::prime(const poll&)
         reset_sandbox();
     }
 
+    prime_kernel_module_test();
     prime_executable();
     prime_virtual_machine();
 }
@@ -624,6 +634,69 @@ void RunnerFSM_::prime_executable()
     // To get the proc-map.log
     launch_executable();
 #endif // !defined(CRETE_TEST)
+}
+
+static bool execute_command_line(std::string cmd)
+{
+    bool ret = true;
+
+    bp::context ctx;
+    ctx.stdout_behavior = bp::capture_stream();
+    ctx.environment = bp::self::get_environment();
+
+
+    std::vector<std::string> args;
+    boost::split(args, cmd, boost::is_any_of(" "), boost::token_compress_on);
+
+    std::string exec = args[0];
+    if(!fs::exists(exec))
+    {
+        exec = bp::find_executable_in_path(exec);
+    }
+
+    if(!fs::exists(exec))
+    {
+        fprintf(stderr, "[CRETE ERROR] [crete-run] command not found: %s\n", exec.c_str());
+        assert(0);
+    }
+
+    bp::child c = bp::launch(exec, args, ctx);
+    bp::status s = c.wait();
+
+    if(!(s.exited() && (s.exit_status() == 0)))
+    {
+        ret = false;
+    }
+
+    return ret;
+}
+void RunnerFSM_::prime_kernel_module_test() const
+{
+    if(!m_kernel_mode)
+        return;
+
+    // Insert kernel probe module
+    std::string kprobe_module = guest_config_.get_kprobe_module();
+    assert(!kprobe_module.empty() &&
+            "[CRETE ERROR] [crete-run] With \'kernel_mode\' enabled, \'kprobe_module\' must be provided\n");
+
+    bool kprobe_module_inserted = execute_command_line("insmod " + kprobe_module);
+    assert(kprobe_module_inserted &&
+            "[CRETE ERROR] [crete-run] Insert kernel module failed.\n");
+}
+
+void RunnerFSM_::execute_setup_commands() const
+{
+    const std::vector<std::string>& setup_commands = guest_config_.get_setup_commands();
+
+    for(std::vector<std::string>::const_iterator it = setup_commands.begin();
+            it != setup_commands.end(); ++it) {
+        bool cmd_executed = execute_command_line(*it);
+        if(!cmd_executed)
+        {
+            fprintf(stderr, "[CRETE Warning][crete-run] \'%s\' executed unsuccessfully.\n", it->c_str());
+        }
+    }
 }
 
 void RunnerFSM_::write_configuration() const
@@ -745,6 +818,8 @@ void RunnerFSM_::update_config(const poll&)
 
 void RunnerFSM_::execute(const next_test&)
 {
+    execute_setup_commands();
+
     // Waiting for "next_test", blocking function
     // TODO: should waiting for the command to come in be a guard?
     PacketInfo pkinfo = client_->read();
@@ -1347,7 +1422,6 @@ void Runner::process_options()
 
 void Runner::start_FSM()
 {
-    fsm_->set_kernel_mode(m_kernel_mode);
     fsm_->start();
 }
 
@@ -1361,7 +1435,8 @@ void Runner::run()
     start s(ip_,
             target_config_,
             sandbox_dir_,
-            environment_path_);
+            environment_path_,
+            m_kernel_mode);
 
     fsm_->process_event(s);
 
