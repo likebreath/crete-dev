@@ -7,3 +7,6 @@
 [submodule "back-end/klee-1.4.0"]
 	path = back-end/klee-1.4.0
 	url = https://github.com/likebreath/klee.git
+[submodule "kprobe_module_generator"]
+	path = misc/util/kprobe_module_generator
+	url = https://github.com/wyz7155/module_code_generator.git
