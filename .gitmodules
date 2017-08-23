@@ -4,3 +4,6 @@
 [submodule "misc/util/tc-replay/check-exploitable"]
 	path = misc/util/tc-replay/check-exploitable
 	url = https://github.com/likebreath/exploitable.git
+[submodule "kprobe_module_generator"]
+	path = misc/util/kprobe_module_generator
+	url = https://github.com/wyz7155/module_code_generator.git
