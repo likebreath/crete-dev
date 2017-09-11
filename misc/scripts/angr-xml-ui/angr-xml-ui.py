@@ -4,7 +4,7 @@ import angr, claripy, time, sys, os, simuvex
 import os, datetime, ntpath, struct, shutil
 from xml.dom import minidom
 
-TIMEOUT = 7
+TIMEOUT = 120
 result_dir = os.path.join(os.getcwd(), "angr-out-" + datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
 
 def check_argv(argv):
@@ -24,13 +24,14 @@ def check_argv(argv):
             print "[ERROR] Invalid input folder for batch mode:  \'" + input_folder + "\'!"
             sys.exit()
 
-        for f in os.listdir(input_folder):
+        for f in sorted(os.listdir(input_folder)):
             if f.endswith('.xml'):
                 serialize_file_path = os.path.join(input_folder, (f + '.serialized'))
                 if not os.path.isfile(serialize_file_path):
                     print "[Warning] \'" + f + "\' does not have corresponding \'.serialized\'"
                     continue
                 xml_path.append(os.path.join(input_folder, f))
+                print f
 
     else:
         print "[ERROR] Invalid argument!"
@@ -163,8 +164,8 @@ def exec_angr(target_exe, dic_args, list_files, stdin_size):
     sm = p.factory.simgr(state)
 
     start_time = time.time()
-    # sm.step(until=lambda lpg: (time.time() - start_time) > TIMEOUT)
-    sm.step(until=lambda lpg: len(lpg.active) > 1)
+    sm.step(until=lambda lpg: (time.time() - start_time) > TIMEOUT)
+    # sm.step(until=lambda lpg: len(lpg.active) > 1)
 
     return sm
 
@@ -337,8 +338,14 @@ def run_angr_with_xml(input_xml):
 def angr_xml_ui(argv):
     list_xml = check_argv(argv)
     os.makedirs(result_dir)
+    os.chdir(result_dir)
+    error_log_file=open("error.log", "w")
     for xml in list_xml:
-        run_angr_with_xml(xml)
+        try:
+            run_angr_with_xml(xml)
+        except:
+            print("Error happened for: ", xml, " with error: ", sys.exc_info()[0] )
+            error_log_file.write("Error happened for: " + str(xml) + " with error: " + str(sys.exc_info()[0]) + "\n")
 
 if __name__ == '__main__':
     angr_xml_ui(sys.argv)
