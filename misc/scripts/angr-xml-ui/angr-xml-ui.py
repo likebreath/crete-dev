@@ -71,7 +71,10 @@ def parse_xml_argv(parsed_xml, dic_args):
         if isinstance(v, str):
             print k + ": string instance, concrete argument, value = " + v
         elif isinstance(v, claripy.ast.Bits):
-            print k + ": claripy AST instance, symbolic argument"
+            assert  v.size() % 8 == 0, \
+                "size of a claripy AST instance has to be divisible by 8, while the size is %r" % v.size()
+            size = v.size() / 8
+            print k + ": claripy AST instance, symbolic argument, size = " + str(size)
         else:
             print "[Error] " + k + ": wrong type"
             print type(v)
@@ -273,6 +276,63 @@ def get_test_case(s, dic_args, list_files, stdin_size, count):
     output.seek(0)
     output.write(struct.pack("i", elem_count))
 
+def get_seed_test_case( dic_args, list_files, stdin_size, count):
+    output = open("{}.bin".format(str(count)), "wb")
+    elem_count = 0
+
+    output.write(struct.pack("i", 0))
+
+    for k,v in dic_args.iteritems():
+        if not isinstance(v, claripy.ast.Bits):
+            continue
+
+        elem_count = elem_count + 1
+
+	#4B for the size of the arg name
+        output.write(struct.pack("i", len(k)))
+	#name
+	output.write(str(k))
+
+	#4B for size of value
+        assert  v.size() % 8 == 0, \
+            "size of a claripy AST instance has to be divisible by 8, while the size is %r" % v.size()
+        size = v.size() // 8
+        output.write(struct.pack("i", size))
+	#value
+	output.write(b'\x00' * size)
+
+    for f in list_files:
+        elem_count = elem_count + 1
+
+        file_path = f[0]
+        file_size = f[1]
+
+        filename = str(ntpath.basename(file_path))
+	#4B for the size of the file name
+        output.write(struct.pack("i", len(filename)))
+	#name
+	output.write(filename)
+
+	#4B for size of value
+	output.write(struct.pack("i", file_size))
+        # value
+        output.write(b'\x00' * file_size)
+
+    if not stdin_size == 0:
+        elem_count = elem_count + 1
+
+	#4B for the size of the name
+        output.write(struct.pack("i", len("crete-stdin")))
+	#name
+	output.write("crete-stdin")
+
+	#4B for size of value
+	output.write(struct.pack("i", stdin_size))
+        #write value
+        output.write(b'\x00' * stdin_size)
+
+    output.seek(0)
+    output.write(struct.pack("i", elem_count))
 
 def setup_crete_out_folder(input_xml):
     output_folder = os.path.join(result_dir, ntpath.basename(input_xml))
@@ -300,8 +360,9 @@ def collect_angr_result(sm, dic_args, list_files, stdin_size):
     print "unconstrained: " + str(len(sm.unconstrained))
     print "len(sum(simgr.stashes.values(), [])): " + str(len(sum(sm.stashes.values(), [])))
 
-    all_states = sum(sm.stashes.values(), [])
+    get_seed_test_case(dic_args, list_files, stdin_size, 0)
 
+    all_states = sum(sm.stashes.values(), [])
     tc_count = 0
     for s in all_states:
         tc_count = tc_count + 1
