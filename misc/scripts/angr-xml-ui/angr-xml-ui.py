@@ -16,7 +16,7 @@ def check_argv(argv):
             print "[ERROR] input file \'" + input_xml + "\' does not exist!"
             sys.exit()
 
-        xml_path.append(input_xml)
+        xml_path.append(os.path.abspath(input_xml))
 
     elif (len(argv) == 3) and (argv[1] == '-b'):
         input_folder = os.path.abspath(argv[2])
@@ -161,7 +161,7 @@ def exec_angr(target_exe, dic_args, list_files, stdin_size):
         print "symbolic file: " + k
 
     state = p.factory.entry_state(args=arguments, fs=files)
-    sm = p.factory.simgr(state)
+    sm = p.factory.simgr(state, save_unconstrained=True)
 
     start_time = time.time()
     sm.step(until=lambda lpg: (time.time() - start_time) > TIMEOUT)
@@ -172,17 +172,17 @@ def exec_angr(target_exe, dic_args, list_files, stdin_size):
 def get_simfile_content(s, file_path):
     fd = s.posix.filename_to_fd(file_path)
     if(fd == None):
-        print "No fd found, use dump_file_by_path(): " + file_path
+        # print "No fd found, use dump_file_by_path(): " + file_path
         return s.posix.dump_file_by_path(file_path)
     else:
-        print "fd found \'" + str(fd) + "\': " + file_path
+        # print "fd found \'" + str(fd) + "\': " + file_path
         return s.posix.dumps(fd)
 
 
 def get_test_case(s, dic_args, list_files, stdin_size, count):
-    print "--------------"
-    print "get_test_case:"
-    print "--------------"
+    # print "--------------"
+    # print "get_test_case:"
+    # print "--------------"
 
     output = open("{}.bin".format(str(count)), "wb")
     elem_count = 0
@@ -194,7 +194,7 @@ def get_test_case(s, dic_args, list_files, stdin_size, count):
             continue
 
         elem_count = elem_count + 1
-        concrete_value = s.solver.any_str(v)
+        concrete_value = s.solver.eval(v, cast_to=str)
 
 	#4B for the size of the arg name
         output.write(struct.pack("i", len(k)))
@@ -297,16 +297,17 @@ def collect_angr_result(sm, dic_args, list_files, stdin_size):
 
     print "deadended: " + str(len(sm.deadended))
     print "active: " + str(len(sm.active))
+    print "unconstrained: " + str(len(sm.unconstrained))
+    print "len(sum(simgr.stashes.values(), [])): " + str(len(sum(sm.stashes.values(), [])))
+
+    all_states = sum(sm.stashes.values(), [])
 
     tc_count = 0
-
-    for s in sm.deadended:
+    for s in all_states:
         tc_count = tc_count + 1
         get_test_case(s, dic_args, list_files, stdin_size, tc_count)
 
-    for s in sm.active:
-        tc_count = tc_count + 1
-        get_test_case(s, dic_args, list_files, stdin_size, tc_count)
+
 
 def run_angr_with_xml(input_xml):
     parsed_xml = minidom.parse(input_xml)
