@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
-import angr, claripy, time, sys, os, simuvex
-import os, datetime, ntpath, struct, shutil
+import angr, claripy
+import sys, os, time, datetime, ntpath, struct, shutil
 from xml.dom import minidom
 
 TIMEOUT = 120
+# simuvex, time
 result_dir = os.path.join(os.getcwd(), "angr-out-" + datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
 
 def check_argv(argv):
@@ -122,10 +123,60 @@ def parse_xml_stdin(parsed_xml):
     print "stdin_size from xml: " + str(size)
     return size
 
-def exec_angr(target_exe, dic_args, list_files, stdin_size):
+def write_angr_script(file_name, target_exe, dic_args, list_files, stdin_size):
+    angr_script_file = open(file_name, "w")
+
+    angr_script_file.write("import angr, claripy\n")
+    angr_script_file.write("\n")
+
+    angr_script_file.write("def exec_angr():\n")
+    angr_script_file.write("    target_exe = '%s'\n" % target_exe)
+    angr_script_file.write("\n")
+
+    angr_script_file.write("    arguments = list()\n")
+    for i in range(0, len(dic_args)):
+        key = "argv_{0}".format(i)
+        if not key in dic_args:
+            print "[ERROR] incomplete argv list from xml: \'" + key + "\' not found"
+            sys.exit()
+        v = dic_args[key]
+        if isinstance(v, str):
+            angr_script_file.write("    arguments.append('{}')\n".format(v))
+        elif isinstance(v, claripy.ast.Bits):
+            angr_script_file.write("    arguments.append(claripy.BVS('{}', {}))\n".format(key, v.size()))
+    angr_script_file.write("\n")
+
+    angr_script_file.write("    files = {}\n")
+    angr_script_file.write("    files['/dev/stdin'] = angr.storage.file.SimFile('/dev/stdin', 'r', size = 8)\n")
+    angr_script_file.write("\n")
+
+    for f in list_files:
+        file_path = f[0]
+        file_size = f[1]
+        angr_script_file.write("    files['{}'] = angr.storage.file.SimFile('{}', 'r', size = {})\n".format(file_path, file_path, file_size))
+        angr_script_file.write("    arguments.append('{}')\n".format(file_path))
+    angr_script_file.write("\n")
+
+    angr_script_file.write("    p = angr.Project(target_exe, load_options={'auto_load_libs':True})\n")
+    angr_script_file.write("    state = p.factory.entry_state(args=arguments, fs=files)\n")
+    angr_script_file.write("    sm = p.factory.simgr(state, save_unconstrained=True)\n")
+    angr_script_file.write("    sm.run()\n")
+    angr_script_file.write("\n")
+
+    angr_script_file.write("if __name__ == '__main__':\n")
+    angr_script_file.write("    exec_angr()\n")
+    angr_script_file.write("\n")
+
+    angr_script_file.close()
+
+def exec_angr(input_xml, target_exe, dic_args, list_files, stdin_size):
     print "========="
     print "exec_angr"
     print "========="
+
+    os.chdir(result_dir)
+    error_script_name  = "angr_error_{}.py".format(ntpath.basename(os.path.splitext(input_xml)[0]))
+    write_angr_script(error_script_name, target_exe, dic_args, list_files, stdin_size)
 
     p = angr.Project(target_exe, load_options={'auto_load_libs':True})
 
@@ -170,9 +221,13 @@ def exec_angr(target_exe, dic_args, list_files, stdin_size):
     sm.step(until=lambda lpg: (time.time() - start_time) > TIMEOUT)
     # sm.step(until=lambda lpg: len(lpg.active) > 1)
 
+    os.remove(error_script_name)
     return sm
 
 def get_simfile_content(s, file_path):
+    # return s.posix.dump_file_by_path(file_path)
+    print "file_path = {}".format(file_path)
+
     fd = s.posix.filename_to_fd(file_path)
     if(fd == None):
         # print "No fd found, use dump_file_by_path(): " + file_path
@@ -389,7 +444,7 @@ def run_angr_with_xml(input_xml):
     stdin_size = parse_xml_stdin(parsed_xml)
 
     ## 5. start angr with parsed args, files and stdin
-    sm = exec_angr(target_exe, dic_args, list_files, stdin_size)
+    sm = exec_angr(input_xml, target_exe, dic_args, list_files, stdin_size)
 
     ## 6. collect angr's result
     setup_crete_out_folder(input_xml)
