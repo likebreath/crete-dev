@@ -73,6 +73,7 @@ extern "C" {
 #include "llvm/Support/Path.h"
 
 #include "tcg-llvm-offline/tcg-llvm-offline.h"
+#include <fstream>
 #endif // #if defined(TCG_LLVM_OFFLINE)
 
 #include <iostream>
@@ -225,6 +226,7 @@ public:
     void crete_add_tbExecSequ(vector<pair<uint64_t, uint64_t> > seq);
 
     void generate_crete_main();
+    GlobalVariable* generate_crete_init_cpuState();
 
 private:
     map<uint64_t, string> m_crete_helper_names;
@@ -1446,6 +1448,8 @@ void TCGLLVMContextPrivate::crete_add_tbExecSequ(vector<pair<uint64_t, uint64_t>
 
 void TCGLLVMContextPrivate::generate_crete_main()
 {
+    GlobalVariable* crete_cpu_state = generate_crete_init_cpuState();
+
     FunctionType *FT = FunctionType::get(Type::getVoidTy(m_context),
             std::vector<llvm::Type*>(0), false);
 
@@ -1456,8 +1460,6 @@ void TCGLLVMContextPrivate::generate_crete_main()
             "entry", crete_main_func);
     m_builder.SetInsertPoint(basicBlock);
 
-    ArrayType* tcg_env_type = ArrayType::get(intType(8), m_cpuState_size);
-
 #if defined(CRETE_CROSS_CHECK)
     // 0. call void @crete_verify_all_cpuState_offset()
     Function *crete_verify_all_cpuState_offset = m_module->getFunction("crete_verify_all_cpuState_offset");
@@ -1466,16 +1468,13 @@ void TCGLLVMContextPrivate::generate_crete_main()
     m_builder.CreateCall(crete_verify_all_cpuState_offset, std::vector<Value*>());
 #endif
 
-    // 1. %cpu_state = alloca [34320 x i8]
-    Value *cpu_state= m_builder.CreateAlloca(tcg_env_type, 0, "cpu_state");
-
     // 2. call void @init_cpu_state([34320 x i8]* %cpu_state)
     {
         std::vector<Value*> argValues;
         std::vector<llvm::Type*> argTypes;
 
-        argValues.push_back(cpu_state);
-        argTypes.push_back(cpu_state->getType());
+        argValues.push_back(crete_cpu_state);
+        argTypes.push_back(crete_cpu_state->getType());
 
         Function *init_cpu_state = Function::Create(
                 FunctionType::get(Type::getVoidTy(m_context), argTypes, false),
@@ -1486,11 +1485,10 @@ void TCGLLVMContextPrivate::generate_crete_main()
     }
 
     // 3. %cpu_state_addr = alloca i64
-    Value *cpu_state_addr = m_builder.CreateAlloca(intType(64), 0, "cpu_state_addr");
+    Value *cpu_state_addr = m_builder.CreateAlloca(intType(64), 0, "crete_cpu_state_addr");
 
-    // 4.   %0 = ptrtoint [34320 x i8]* %cpu_state to i64
-    //      store i64 %0, i64* %cpu_state_addr
-    m_builder.CreateStore(m_builder.CreatePtrToInt(cpu_state, intType(64)),
+    // 4.   store i64 ptrtoint ([34320 x i8]* @crete_cpu_state to i64), i64* %crete_cpu_state_addr
+    m_builder.CreateStore(m_builder.CreatePtrToInt(crete_cpu_state, intType(64)),
             cpu_state_addr, false);
 
     std::vector<llvm::Type*> tb_prologue_argTypes;
@@ -1529,6 +1527,40 @@ void TCGLLVMContextPrivate::generate_crete_main()
             std::vector<llvm::Value*>(1, ConstantInt::get(intType(64), tb_count)));
 
     m_builder.CreateRet(0);
+}
+
+GlobalVariable* TCGLLVMContextPrivate::generate_crete_init_cpuState()
+{
+    // 1. Get initial CPUState from file
+    ifstream i_sm("dump_initial_cpuState.bin", ios_base::binary);
+    assert(i_sm && "open file failed: dump_initial_cpuState.bin\n");;
+
+    i_sm.seekg(0, ios::end);
+    uint64_t size_cpuState = i_sm.tellg();
+    assert(size_cpuState == m_cpuState_size);
+    i_sm.seekg(0, ios::beg);
+
+    string initial_cpuState;
+    initial_cpuState.reserve(size_cpuState);
+    initial_cpuState.assign((std::istreambuf_iterator<char>(i_sm)),
+                std::istreambuf_iterator<char>());
+
+    assert(initial_cpuState.size() == m_cpuState_size);
+
+    // 2. Construct a global variable "cpu_state" with initial value read from file
+    Constant *const_initial_cpuState = ConstantDataArray::getString(m_module->getContext(), initial_cpuState, true);
+    ArrayType* ArrayTy_0 = ArrayType::get(IntegerType::get(m_module->getContext(), 8), m_cpuState_size);
+
+    GlobalVariable* gvar_array_init_cpuState = new GlobalVariable(/*Module=*/*m_module,
+    /*Type=*/ArrayTy_0,
+    /*isConstant=*/false,
+    /*Linkage=*/GlobalValue::InternalLinkage,
+    /*Initializer=*/const_initial_cpuState,
+    /*Name=*/"crete_cpu_state");
+
+    gvar_array_init_cpuState->setAlignment(16);
+
+    return gvar_array_init_cpuState;
 }
 
 /***********************************/
