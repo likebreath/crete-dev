@@ -380,6 +380,13 @@ void x86_llvm_translator()
             ss << "dump_sync_cpu_states." << streamed_count-1 << ".bin";
             tcg_llvm_ctx->generate_llvm_cpuStateSyncTables(ss.str());
         }
+
+        {
+            //process dump_new_sync_memos();
+            ss.str(string());
+            ss << "dump_new_sync_memos." << streamed_count-1 << ".bin";
+            tcg_llvm_ctx->generate_llvm_MemorySyncTables(ss.str());
+        }
     }
 
     //4. generate main function

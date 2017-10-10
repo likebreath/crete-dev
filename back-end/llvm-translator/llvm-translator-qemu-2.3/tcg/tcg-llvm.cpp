@@ -126,6 +126,8 @@ struct CPUStateElement{
 
 typedef pair<bool, vector<CPUStateElement> > cpuStateSyncTable_ty;
 
+typedef vector<pair<uint64_t, uint8_t> > memoSyncTable_ty;
+
 struct TCGLLVMContextPrivate {
     LLVMContext& m_context;
     IRBuilder<> m_builder;
@@ -266,6 +268,9 @@ public:
     void crete_generate_llvm_cpuStateSyncTables(const string& input_file_name);
     void crete_generate_llvm_cpuStateSyncTable(const cpuStateSyncTable_ty& csst);
 
+    void generate_llvm_MemorySyncTables(const string& input_file_name);
+    void generate_llvm_MemorySyncTable(const memoSyncTable_ty& memost);
+
 private:
     map<uint64_t, string> m_crete_helper_names;
 
@@ -274,6 +279,7 @@ private:
     uint64_t m_cpuState_size;
 
     vector<pair<uint64_t, GlobalVariable *> > m_cpuState_sync_globals;
+    vector<pair<uint64_t, GlobalVariable *> > m_memory_sync_globals;
 };
 
 TCGLLVMContextPrivate::TCGLLVMContextPrivate()
@@ -1488,9 +1494,10 @@ void TCGLLVMContextPrivate::crete_add_tbExecSequ(vector<pair<uint64_t, uint64_t>
 
 void TCGLLVMContextPrivate::generate_crete_main()
 {
-    if(m_tbExecSequ.size() != m_cpuState_sync_globals.size())
+    if(m_tbExecSequ.size() != m_cpuState_sync_globals.size() ||
+            m_tbExecSequ.size() != m_memory_sync_globals.size())
     {
-        BOOST_THROW_EXCEPTION(std::runtime_error("[Crete Error] m_tbExecSequ.size() != m_cpuState_sync_globals.size()"));
+        BOOST_THROW_EXCEPTION(std::runtime_error("[Crete Error] m_tbExecSequ.size() != m_cpuState_sync_globals.size()/m_memory_sync_globals.size()"));
     }
 
     // 0. Construct initial cpu state in llvm bc
@@ -1637,6 +1644,31 @@ void TCGLLVMContextPrivate::generate_crete_tb_prologue(uint64_t tb_count, uint64
         m_builder.CreateCall(func_sync_cpu_state, sync_cpu_state_argValues);
     }
 
+    // 2. call void crete_sync_memory(const struct MemoryElement *sync_table, uint32_t st_size)
+    if(m_memory_sync_globals[tb_count].first != 0)
+    {
+        uint32_t st_size = m_memory_sync_globals[tb_count].first;
+        GlobalVariable *sync_table = m_memory_sync_globals[tb_count].second;
+
+        Function* func_crete_sync_memory = m_module->getFunction("crete_sync_memory");
+        if(!func_crete_sync_memory)
+        {
+            BOOST_THROW_EXCEPTION(std::runtime_error("[Crete Error] crete_sync_memory() is not defined.\n"));
+        }
+
+        // 2.1 const struct MemoryElement *sync_table:
+        //         (getelementptr inbounds (MemoryElement, i32 0, i32 0))
+        Constant* const_ptr_sync_table = ConstantExpr::getGetElementPtr(sync_table,
+                vector<Constant *>(2, ConstantInt::get(m_module->getContext(), APInt(32, 0))));
+        // 2.2 uint32_t st_size
+        ConstantInt* const_int32_st_size = ConstantInt::get(m_module->getContext(), APInt(32, st_size));
+
+        std::vector<Value*> crete_sync_memory_argValues;
+        crete_sync_memory_argValues.push_back(const_ptr_sync_table);
+        crete_sync_memory_argValues.push_back(const_int32_st_size);
+        m_builder.CreateCall(func_crete_sync_memory, crete_sync_memory_argValues);
+    }
+
     {
         // 2. call void @crete_qemu_tb_prologue(i64 tb_count, i64 tb_pc)
         Function* crete_qemu_tb_prologue = m_module->getFunction("crete_qemu_tb_prologue");
@@ -1690,8 +1722,6 @@ void TCGLLVMContextPrivate::crete_generate_llvm_cpuStateSyncTable(const cpuState
     }
 
     uint64_t syncTable_size = csst.second.size();
-    // construct type for syncTable in llvm as "CPUStateElement[syncTable_size]"
-    ArrayType* ArrayTy_syncTable = ArrayType::get(StructTy_struct_CPUStateElement, syncTable_size);
     std::vector<Constant*> const_array_elems; // construct value for syncTable in llvm
     const_array_elems.reserve(syncTable_size);
 
@@ -1732,6 +1762,8 @@ void TCGLLVMContextPrivate::crete_generate_llvm_cpuStateSyncTable(const cpuState
 
     assert(const_array_elems.size() == syncTable_size);
 
+    // Construct type for syncTable in llvm as "CPUStateElement[syncTable_size]"
+    ArrayType* ArrayTy_syncTable = ArrayType::get(StructTy_struct_CPUStateElement, syncTable_size);
     // Construct instance of syncTable as global variable in llvm
     GlobalVariable* gvar_array_cpuStateSyncTable = new GlobalVariable(*m_module, /*Module=*/
                                                                       ArrayTy_syncTable, /*Type=*/
@@ -1742,7 +1774,73 @@ void TCGLLVMContextPrivate::crete_generate_llvm_cpuStateSyncTable(const cpuState
     m_cpuState_sync_globals.push_back(make_pair(syncTable_size, gvar_array_cpuStateSyncTable));
 }
 
+void TCGLLVMContextPrivate::generate_llvm_MemorySyncTables(const string& input_file_name)
+{
+    ifstream i_sm(input_file_name.c_str(), ios_base::binary);
+    if(!i_sm.good()) {
+        BOOST_THROW_EXCEPTION(std::runtime_error("[Crete Error] can't find file: " + input_file_name));
+    }
 
+    vector<memoSyncTable_ty> memorySyncTable;
+    boost::archive::binary_iarchive ia(i_sm);
+    ia >> memorySyncTable;;
+
+    for(vector<memoSyncTable_ty>::const_iterator it = memorySyncTable.begin();
+            it != memorySyncTable.end(); ++it) {
+        generate_llvm_MemorySyncTable(*it);
+    }
+}
+
+void TCGLLVMContextPrivate::generate_llvm_MemorySyncTable(const memoSyncTable_ty& memost)
+{
+    if(memost.empty())
+    {
+        m_memory_sync_globals.push_back(make_pair(0, (GlobalVariable*)0));
+        return;
+    }
+
+    StructType *StructTy_struct_MemoSyncElement = m_module->getTypeByName("struct.MemoryElement");
+    if(!StructTy_struct_MemoSyncElement)
+    {
+        BOOST_THROW_EXCEPTION(std::runtime_error( "struct.MemoSyncElement is not defined.\n"));
+    }
+
+    uint64_t syncTable_size = memost.size();
+    std::vector<Constant*> const_array_elems; // construct value for syncTable in llvm
+    const_array_elems.reserve(syncTable_size);
+
+    for(memoSyncTable_ty::const_iterator it = memost.begin();
+            it != memost.end(); ++it) {
+        uint8_t value = it->second;
+        uint64_t static_addr = it->first;
+
+        // 1. uint8_t m_value
+        ConstantInt* const_int8_value = ConstantInt::get(m_module->getContext(), APInt(8, value));
+        // 2. uint64_t m_static_addr
+        ConstantInt* const_int64_static_addr = ConstantInt::get(m_module->getContext(), APInt(64, static_addr));
+
+        std::vector<Constant*> const_memoSyncElement_fields;
+        const_memoSyncElement_fields.push_back(const_int8_value);
+        const_memoSyncElement_fields.push_back(const_int64_static_addr);
+
+        Constant* const_memoSyncElement = ConstantStruct::get(StructTy_struct_MemoSyncElement, const_memoSyncElement_fields);
+
+        const_array_elems.push_back(const_memoSyncElement);
+    }
+
+    assert(const_array_elems.size() == syncTable_size);
+
+    // Construct type for syncTable in llvm as "MemoSyncElement[syncTable_size]"
+    ArrayType* ArrayTy_syncTable = ArrayType::get(StructTy_struct_MemoSyncElement, syncTable_size);
+    // Construct instance of syncTable as global variable in llvm
+    GlobalVariable* gvar_array_cpuStateSyncTable = new GlobalVariable(*m_module, /*Module=*/
+                                                                      ArrayTy_syncTable, /*Type=*/
+                                                                      false, /*isConstant=*/
+                                                                      GlobalValue::ExternalLinkage, /*Linkage=*/
+                                                                      ConstantArray::get(ArrayTy_syncTable, const_array_elems) /*Initializer=*/);
+
+    m_memory_sync_globals.push_back(make_pair(syncTable_size, gvar_array_cpuStateSyncTable));
+}
 /***********************************/
 /* External interface for C++ code */
 
@@ -1866,6 +1964,11 @@ void TCGLLVMContext::generate_crete_main()
 void TCGLLVMContext::generate_llvm_cpuStateSyncTables(const string& input_file_name)
 {
     m_private->crete_generate_llvm_cpuStateSyncTables(input_file_name);
+}
+
+void TCGLLVMContext::generate_llvm_MemorySyncTables(const string& input_file_name)
+{
+    m_private->generate_llvm_MemorySyncTables(input_file_name);
 }
 #endif // TCG_LLVM_OFFLINE
 /*****************************/
