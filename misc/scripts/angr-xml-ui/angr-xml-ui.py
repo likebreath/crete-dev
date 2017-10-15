@@ -9,8 +9,17 @@ MEMCAP = 1024*1024*8 # 8GB
 # simuvex, time
 result_dir = os.path.join(os.getcwd(), "angr-out-" + datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
 
+error_log_file = 0
+info_log_file = 0
+
+running_time = 0
+max_mem_usage = 0
+
 def check_argv(argv):
+    global error_log_file, info_log_file, result_dir
+
     xml_path = list()
+    mk_dir = True
 
     if len(argv) == 2:
         input_xml = argv[1]
@@ -34,10 +43,33 @@ def check_argv(argv):
                     continue
                 xml_path.append(os.path.join(input_folder, f))
                 print f
+    elif (len(argv) == 4) and (argv[1] == '-eb'):
+        ## 'python angr-xml-ui.py -eb test.xml out-directory/'
+        print "external batch mode!\n"
 
+        input_xml = os.path.abspath(argv[2])
+        if (not os.path.isfile(input_xml)) or (not input_xml.endswith('.xml')):
+            print "[ERROR] Invalid input xml file for exteranl batch mode:  \'" + input_xml + "\'!"
+            sys.exit()
+        serialize_file_path = os.path.join(input_xml + '.serialized')
+        if not os.path.isfile(serialize_file_path):
+            print "[Error] \'" + f + "\' does not have corresponding \'.serialized\'"
+            sys.exit()
+        xml_path.append(input_xml);
+
+        result_dir = os.path.abspath(argv[3])
+        if(os.path.isdir(result_dir)):
+            mk_dir = False
     else:
         print "[ERROR] Invalid argument!"
         sys.exit()
+
+    if(mk_dir):
+        os.makedirs(result_dir)
+
+    os.chdir(result_dir)
+    error_log_file=open("error.log", "a")
+    info_log_file=open("info.log", "a")
 
     return xml_path
 
@@ -171,13 +203,14 @@ def write_angr_script(file_name, target_exe, dic_args, list_files, stdin_size):
     angr_script_file.close()
 
 def check_timeout_memcap(start_time):
+    global running_time, max_mem_usage
+
     running_time = time.time() - start_time
     max_mem_usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 
     # print "running_time = %s s, max_mem_usage = %s KB\n" %(running_time, max_mem_usage)
 
     return (running_time > TIMEOUT) or (max_mem_usage > MEMCAP)
-
 
 def exec_angr(input_xml, target_exe, dic_args, list_files, stdin_size):
     print "========="
@@ -436,6 +469,9 @@ def collect_angr_result(sm, dic_args, list_files, stdin_size):
 
 
 def run_angr_with_xml(input_xml):
+    print "\n---------------------------\n"
+    print "Start to test: '%s'\n"%(input_xml)
+
     parsed_xml = minidom.parse(input_xml)
 
     dic_args  = {}
@@ -464,12 +500,12 @@ def run_angr_with_xml(input_xml):
 
 def angr_xml_ui(argv):
     list_xml = check_argv(argv)
-    os.makedirs(result_dir)
-    os.chdir(result_dir)
-    error_log_file=open("error.log", "w")
     for xml in list_xml:
         try:
             run_angr_with_xml(xml)
+            msg = "%s finished: %s s, %s MB\n"%(xml, running_time, max_mem_usage/1024.0)
+            print(msg)
+            info_log_file.write(msg)
         except:
             print("Error happened for: ", xml, " with error: ", sys.exc_info()[0] )
             error_log_file.write("Error happened for: " + str(xml) + " with error: " + str(sys.exc_info()[0]) + "\n")
