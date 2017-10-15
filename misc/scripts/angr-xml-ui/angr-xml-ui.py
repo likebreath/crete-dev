@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
 import angr, claripy
-import sys, os, time, datetime, ntpath, struct, shutil
+import sys, os, time, datetime, ntpath, struct, shutil, resource
 from xml.dom import minidom
 
 TIMEOUT = 3600
+MEMCAP = 1024*1024*8 # 8GB
 # simuvex, time
 result_dir = os.path.join(os.getcwd(), "angr-out-" + datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
 
@@ -169,6 +170,15 @@ def write_angr_script(file_name, target_exe, dic_args, list_files, stdin_size):
 
     angr_script_file.close()
 
+def check_timeout_memcap(start_time):
+    running_time = time.time() - start_time
+    max_mem_usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+
+    # print "running_time = %s s, max_mem_usage = %s KB\n" %(running_time, max_mem_usage)
+
+    return (running_time > TIMEOUT) or (max_mem_usage > MEMCAP)
+
+
 def exec_angr(input_xml, target_exe, dic_args, list_files, stdin_size):
     print "========="
     print "exec_angr"
@@ -218,7 +228,7 @@ def exec_angr(input_xml, target_exe, dic_args, list_files, stdin_size):
     sm = p.factory.simgr(state, save_unconstrained=True)
 
     start_time = time.time()
-    sm.step(until=lambda lpg: (time.time() - start_time) > TIMEOUT)
+    sm.step(until=lambda lpg: (check_timeout_memcap(start_time)))
     # sm.step(until=lambda lpg: len(lpg.active) > 1)
 
     os.remove(error_script_name)
