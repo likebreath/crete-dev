@@ -4,7 +4,7 @@ import angr, claripy
 import sys, os, time, datetime, ntpath, struct, shutil
 from xml.dom import minidom
 
-TIMEOUT = 120
+TIMEOUT = 3600
 # simuvex, time
 result_dir = os.path.join(os.getcwd(), "angr-out-" + datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
 
