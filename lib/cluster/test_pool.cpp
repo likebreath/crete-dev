@@ -67,7 +67,11 @@ auto TestPool::insert_initial_tc_from_config(const TestCase& tc) -> bool
     assert(next_.empty());
     assert(tc_count_ == 0);
 
-    next_.push(tc);
+    // FIXME: xxx
+    TestCase &_tc = const_cast<TestCase&>(tc);
+    _tc.set_tp_index(1);
+
+    next_.push(_tc);
     return true;
 }
 
@@ -122,9 +126,12 @@ auto TestPool::write_log(std::ostream& os) -> void
 
 auto TestPool::insert_internal(const TestCase& tc) -> bool
 {
-    next_.push(tc);
+    TestCase &_tc = const_cast<TestCase&>(tc);
+    uint64_t tp_index = ++tc_count_;
+    _tc.set_tp_index(tp_index);
 
-    write_test_case(tc, root_ / "test-case" / std::to_string(++tc_count_));
+    next_.push(_tc);
+    write_test_case(_tc, root_ / "test-case" / std::to_string(tp_index));
 
     return true;
 }

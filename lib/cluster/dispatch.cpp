@@ -645,6 +645,12 @@ struct VMNodeFSM_::rx_trace
             read_serialized_binary(lock->server,
                                    *guest_data_post_exec,
                                    packet_type::cluster_tx_guest_data_post_exec);
+
+            //TODO: xxx Write to log file
+            fprintf(stderr, "'tc-%lu' -> 'trace: %s'",
+                    guest_data_post_exec->m_tc_tp_index,
+                    trace->string().c_str());
+
         }
         , fsm.node_
         , fsm.traces_dir_

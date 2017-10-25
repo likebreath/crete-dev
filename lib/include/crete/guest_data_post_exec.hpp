@@ -26,8 +26,9 @@ namespace crete
 struct GuestDataPostExec
 {
     vector<uint64_t> m_new_captured_tbs;
+    uint64_t m_tc_tp_index;
 
-    GuestDataPostExec() {};
+    GuestDataPostExec():m_tc_tp_index(0) {};
     ~GuestDataPostExec() {};
 
     template <typename Archive>
@@ -36,11 +37,17 @@ struct GuestDataPostExec
         (void)version;
 
         ar & m_new_captured_tbs;
+        ar & m_tc_tp_index;
     }
 
     void add_new_tb_pc(const uint64_t pc)
     {
         m_new_captured_tbs.push_back(pc);
+    }
+
+    void set_tc_tb_index(uint64_t index)
+    {
+        m_tc_tp_index = index;
     }
 };
 

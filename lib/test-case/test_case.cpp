@@ -171,7 +171,8 @@ namespace crete
         priority_(0),
         m_patch(false),
         m_issue_index(0),
-        m_base_tc_issue_index(0)
+        m_base_tc_issue_index(0),
+        m_tp_index(0)
     {
     }
 
@@ -183,7 +184,8 @@ namespace crete
      m_tcp_tt(tcp_tt),
      m_tcp_elems(tcp_elems),
      m_issue_index(0),
-     m_base_tc_issue_index(base_tc_issue_index)
+     m_base_tc_issue_index(base_tc_issue_index),
+     m_tp_index(0)
     {}
 
     TestCase::TestCase(const TestCase& tc)
@@ -196,7 +198,8 @@ namespace crete
      elems_(tc.elems_),
      m_explored_nodes(tc.m_explored_nodes),
      m_semi_explored_node(tc.m_semi_explored_node),
-     m_new_nodes(tc.m_new_nodes)
+     m_new_nodes(tc.m_new_nodes),
+     m_tp_index(tc.m_tp_index)
     {}
 
 
@@ -294,6 +297,17 @@ namespace crete
                     (int)valid_m_semi_explored_node, (int)valid_m_new_nodes);
             assert(0);
         }
+    }
+
+    uint64_t TestCase::get_tp_index() const
+    {
+        return m_tp_index;
+    }
+
+    void TestCase::set_tp_index(uint64_t index)
+    {
+        assert(m_tp_index == 0);
+        m_tp_index = index;
     }
 
     void TestCase::print() const

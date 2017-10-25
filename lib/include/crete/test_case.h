@@ -91,6 +91,9 @@ namespace crete
         TestCaseIssueIndex get_issue_index() const;
         void set_issue_index(TestCaseIssueIndex index);
 
+        uint64_t get_tp_index() const;
+        void set_tp_index(uint64_t index);
+
         void print() const;
 
         friend TestCase generate_complete_tc_from_patch(const TestCase& patch, const TestCase& base);
@@ -114,6 +117,8 @@ namespace crete
             ar & m_explored_nodes;
             ar & m_semi_explored_node;
             ar & m_new_nodes;
+
+            ar & m_tp_index;
         }
 
         bool operator==(TestCase const& other) const
@@ -138,6 +143,8 @@ namespace crete
         creteTraceTag_ty m_explored_nodes;
         creteTraceTag_ty m_semi_explored_node;
         creteTraceTag_ty m_new_nodes;
+
+        uint64_t m_tp_index; // Index of the current tc in test_pool (the same as there name in dispatch/teset-case folder)
     };
 
     std::ostream& operator<<(std::ostream& os, const TestCaseElement& elem);

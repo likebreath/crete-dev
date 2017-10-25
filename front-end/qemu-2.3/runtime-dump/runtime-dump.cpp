@@ -705,6 +705,7 @@ void RuntimeEnv::init_concolics()
     inputs.clear();
     inputs.seekg(0, ios::beg);
     const TestCase& tc = read_serialized(inputs);
+    m_guest_data_post_exec.set_tc_tb_index(tc.get_tp_index());
     tc.assert_issued_tc();
 
     m_input_tc = tc;
