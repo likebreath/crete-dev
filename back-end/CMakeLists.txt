@@ -12,9 +12,7 @@ set(KLEE_C_FLAGS "${CMAKE_C_FLAGS} -I${CMAKE_SOURCE_DIR}/lib/include/ -I${CMAKE_
 # -I/usr/include/glib-2.0/ -I/usr/lib/x86_64-linux-gnu/glib-2.0/include/
 set(KLEE_LD_FLAGS "-L${CMAKE_BINARY_DIR}/bin -L${CMAKE_BINARY_DIR}/bin/boost")
 
-execute_process(COMMAND which llvm-config-3.4
-  OUTPUT_VARIABLE LLVMCONFIG_PATH
-  OUTPUT_STRIP_TRAILING_WHITESPACE)
+set(LLVMCONFIG_PATH "/home/chenbo/tools/llvm-3.4/Release+Asserts/bin/llvm-config")
 
 ExternalProject_Add(
         klee-1.4.0
@@ -36,7 +34,7 @@ ExternalProject_Add(
         -DENABLE_SOLVER_STP=ON
         -DENABLE_SYSTEM_TESTS=OFF
         -DENABLE_UNIT_TESTS=OFF
-        -DENABLE_KLEE_ASSERTS=FALSE
+        -DENABLE_KLEE_ASSERTS=TRUE
 
         INSTALL_COMMAND
         ln -sf
