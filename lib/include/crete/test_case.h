@@ -108,6 +108,7 @@ namespace crete
 
         void print() const;
 
+        friend bool check_tc_elems_meaningfulness(TestCase &tc);
         friend TestCase generate_complete_tc_from_patch(const TestCase& patch, const TestCase& base);
         friend std::ostream& operator<<(std::ostream& os, const TestCase& tc);
 
