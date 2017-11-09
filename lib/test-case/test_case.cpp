@@ -1,6 +1,7 @@
 #include <crete/test_case.h>
 #include <crete/exception.h>
 #include <crete/util/util.h>
+#include "tc_elem_checker.hpp"
 
 #include <external/alphanum.hpp>
 
@@ -70,6 +71,30 @@ namespace crete
         {
             iter->write(os);
         }
+    }
+
+    bool check_tc_elems_meaningfulness(TestCase &tc)
+    {
+        bool ret = false;
+        TestCaseElements meaningful_elems;
+
+        for(TestCaseElements::const_iterator it = tc.elems_.begin();
+                it != tc.elems_.end(); ++it) {
+            if(check_tc_elem_meaningfulness(it->data,
+                    string(it->name.begin(), it->name.end())))
+            {
+                meaningful_elems.push_back(*it);
+            }
+        }
+
+        tc.set_elements(meaningful_elems);
+
+        if(!meaningful_elems.empty())
+        {
+            ret = true;
+        }
+
+        return ret;
     }
 
     TestCase generate_complete_tc_from_patch(const TestCase& patch, const TestCase& base)

@@ -417,6 +417,8 @@ void batch_path_mode_internal(const fs::path& input)
             out_tc = tcs[i];
         }
 
+        check_tc_elems_meaningfulness(out_tc);
+
         std::stringstream ss;
         ss << out_dir.string() << "/" << (i+1) << ".bin";
         std::ofstream ktest_pool_file(ss.str().c_str(), std::ios_base::out | std::ios_base::binary);

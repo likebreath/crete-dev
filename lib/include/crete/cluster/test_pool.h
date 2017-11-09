@@ -61,6 +61,7 @@ private:
 
     // debug
     uint64_t m_duplicated_tc_count;
+    uint64_t m_meaningless_tc_count;
 
 public:
     TestPool(const fs::path& root);

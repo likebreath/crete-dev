@@ -42,7 +42,8 @@ TestPool::TestPool(const fs::path& root)
     : root_(root)
     ,tc_count_(0)
     ,next_(TestPriority(BFS))
-    ,m_duplicated_tc_count(0) {}
+    ,m_duplicated_tc_count(0)
+    ,m_meaningless_tc_count(0) {}
 
 auto TestPool::next() -> boost::optional<TestCase>
 {
@@ -118,7 +119,8 @@ auto TestPool::count_next() const -> size_t
 
 auto TestPool::write_log(std::ostream& os) -> void
 {
-    os << "duplicated tc count from all_: " << m_duplicated_tc_count << endl;
+    os << "duplicated tc count from all_: " << m_duplicated_tc_count << endl
+       << "meaningless tc count: " << m_meaningless_tc_count << endl;
 }
 
 auto TestPool::insert_internal(const TestCase& tc) -> bool
@@ -188,6 +190,12 @@ auto TestPool::get_complete_tc(const TestCase& patch_tc) -> boost::optional<Test
         complete_tc = generate_complete_tc_from_patch(patch_tc, base_tc->second);
     }
 
+    // Only keep meaningful tc elems
+    if(!check_tc_elems_meaningfulness(complete_tc))
+    {
+        ++m_meaningless_tc_count;
+    }
+
     // check whether the new complete_tc duplicates with issued tcs
     if(issued_tc_hash_pool_.insert(complete_tc.get_elements()).second)
     {
@@ -219,6 +227,8 @@ auto TestPool::write_test_case(const TestCase& tc, const fs::path out_path) -> v
         BOOST_THROW_EXCEPTION(Exception{} << err::file_open_failed{out_path.string()});
     }
 
+    // TODO: xxx check the meaningfulness of complete tc if possible
+    // Now crete-tc-replay will take care of the check/filter
     write_serialized(ofs, tc);
 }
 
