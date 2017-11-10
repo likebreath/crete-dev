@@ -186,6 +186,7 @@ public:
     struct connect_vm;
     struct receive_guest_info;
     struct finish;
+    struct finish_before_terminate;
     struct terminate;
 
     // +--------------------------------------------------+
@@ -253,7 +254,10 @@ public:
     //   +------------------+------------------+------------------+---------------------+------------------+
       Row<StoreTrace        ,ev::poll          ,Finished          ,none                 ,is_prev_task_finished>,
     //   +------------------+------------------+------------------+---------------------+------------------+
-      Row<Finished          ,ev::trace_queued  ,NextTest          ,finish               ,none            >,
+      Row<Finished          ,ev::trace_queued  ,NextTest          ,finish               ,Not_<is_distributed> >,
+      Row<Finished          ,ev::trace_queued  ,StartVM           ,ActionSequence_<mpl::vector<
+                                                                       finish_before_terminate,
+                                                                       terminate>>      ,is_distributed       >,
     // -- Orthogonal Region
     //   +------------------+------------------+------------------+---------------------+------------------+
       Row<Active            ,ev::terminate     ,Terminated        ,terminate            ,none            >,
@@ -1085,6 +1089,16 @@ struct QemuFSM_::finish
     auto operator()(EVT const&, FSM&, SourceState&, TargetState&) -> void
     {
         // TODO: anything to do here?
+    }
+};
+
+struct QemuFSM_::finish_before_terminate
+{
+    template <class EVT,class FSM,class SourceState,class TargetState>
+    auto operator()(EVT const&, FSM& fsm, SourceState&, TargetState&) -> void
+    {
+        fsm.first_vm_ = false;
+        fsm.server_.reset(new Server);
     }
 };
 
