@@ -88,6 +88,7 @@ auto TestPool::insert(const std::vector<TestCase>& tcs) -> void
     if(tc_count_ == 0)
     {
         assert(!tcs.front().is_test_patch());
+        issued_tc_hash_pool_.insert(tcs.front().get_elements());
         write_test_case(tcs.front(), root_ / "test-case" / std::to_string(++tc_count_));
     }
 
@@ -131,8 +132,6 @@ auto TestPool::insert_internal(const TestCase& tc) -> bool
 
 auto TestPool::insert_base_tc(const TestCase& tc) -> BaseTestCache_ty::const_iterator
 {
-    issued_tc_hash_pool_.insert(tc.get_elements());
-
     if(base_tc_cache_.size() >= BASE_TEST_CACHE_SIZE)
     {
         base_tc_cache_.clear();
