@@ -84,13 +84,23 @@ void CreteReplay::process_options(int argc, char* argv[])
         exit(0);
     }
 
-    if(m_var_map.count("exec") && m_var_map.count("tc-dir") && m_var_map.count("config"))
+    if(m_var_map.count("tc-dir") && m_var_map.count("config"))
     {
-        m_exec = m_var_map["exec"].as<fs::path>();
         m_tc_dir = m_var_map["tc-dir"].as<fs::path>();
         m_config = m_var_map["config"].as<fs::path>();
     } else {
-        BOOST_THROW_EXCEPTION(std::runtime_error("Required options: [exec] [tc-dir] [config]. See '--help' for more info"));
+        BOOST_THROW_EXCEPTION(std::runtime_error("Required options: [tc-dir] [config]. See '--help' for more info"));
+    }
+
+    if(m_var_map.count("exec"))
+    {
+        m_exec = m_var_map["exec"].as<fs::path>();
+
+        if(!fs::exists(m_exec))
+        {
+            BOOST_THROW_EXCEPTION(std::runtime_error("Executable not found: "
+                    + m_exec.generic_string()));
+        }
     }
 
     if(m_var_map.count("input-sandbox"))
@@ -184,11 +194,6 @@ void CreteReplay::process_options(int argc, char* argv[])
         m_exploitable_script = p;
     }
 
-    if(!fs::exists(m_exec))
-    {
-        BOOST_THROW_EXCEPTION(std::runtime_error("Executable not found: "
-                + m_exec.generic_string()));
-    }
     if(!fs::exists(m_tc_dir))
     {
         BOOST_THROW_EXCEPTION(std::runtime_error("Input test case directory not found: "
@@ -440,6 +445,19 @@ void CreteReplay::setup_launch()
         cerr << boost::diagnostic_information(e) << endl;
         BOOST_THROW_EXCEPTION(e);
     };
+
+    // 0. setup m_exec if it is not specified as input of crete-replay
+    if(m_exec.empty())
+    {
+
+        m_exec = guest_config.get_executable();
+
+        if(!fs::exists(m_exec))
+        {
+            BOOST_THROW_EXCEPTION(std::runtime_error("Executable not found: "
+                    + m_exec.generic_string()));
+        }
+    }
 
     // 1. Setup m_launch_directory
     if(!m_input_sandbox.empty())
