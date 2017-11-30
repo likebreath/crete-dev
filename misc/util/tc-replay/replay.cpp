@@ -680,10 +680,9 @@ static vector<string> get_files_ordered(const fs::path& input)
     return file_list;
 }
 
-static bool execute_command_line(const std::string& cmd, const bp::posix_context& ctx)
+static bool execute_command_line(const std::string& cmd, const bp::posix_context& ctx,
+        fs::ofstream& log)
 {
-    fprintf(stderr, "executing: %s\n", cmd.c_str());
-
     bool ret = true;
 
     std::vector<std::string> args;
@@ -707,8 +706,15 @@ static bool execute_command_line(const std::string& cmd, const bp::posix_context
     assert(monitored_timeout != 0);
     alarm(monitored_timeout);
 
-    bp::status s = c.wait();
+    log << "Output from executing: " << cmd.c_str() << endl;
+    bp::pistream& is = c.get_stdout();
+    std::string line;
+    while(getline(is, line))
+    {
+        log << line << endl;
+    }
 
+    bp::status s = c.wait();
     alarm(0);
 
     if(!(s.exited() && (s.exit_status() == 0)))
@@ -717,6 +723,62 @@ static bool execute_command_line(const std::string& cmd, const bp::posix_context
     }
 
     return ret;
+}
+
+static void write_to_procfs(const string& msg, const fs::path &procfs)
+{
+    ofstream ifs(procfs.string().c_str());
+    if(!ifs.good())
+    {
+        BOOST_THROW_EXCEPTION(Exception() << err::file_open_failed(procfs.string()));
+    }
+
+    ifs << msg;
+
+    ifs.close();
+}
+
+static void setup_kernel_mode(const fs::path& current_tc)
+{
+    fs::path crete_replay_procfs(fs::path("/proc") / CRETE_REPLAY_PROCFS);
+
+    if(!fs::exists(crete_replay_procfs))
+        return;
+
+    // 1. issue reset
+    write_to_procfs("Reset", crete_replay_procfs);
+
+    // 2. write "test cases"
+    ifstream ifs(current_tc.string().c_str());
+    if(!ifs.good())
+    {
+        BOOST_THROW_EXCEPTION(Exception() <<
+                err::file_open_failed(current_tc.string()));
+    }
+    TestCase tc = read_test_case(ifs);
+    ifs.close();
+
+    for(vector<TestCaseElement>::const_iterator tc_iter = tc.get_elements().begin();
+            tc_iter !=  tc.get_elements().end(); ++tc_iter)
+    {
+        stringstream ss_tc;
+
+        uint32_t name_size = tc_iter->name_size;
+        string name(tc_iter->name.begin(), tc_iter->name.end());
+        assert(name_size == name.size());
+
+        uint32_t data_size = tc_iter->data_size;
+        string data(tc_iter->data.begin(), tc_iter->data.end());
+        assert(data_size == data.size());
+
+        ss_tc.write((const char *)&name_size, sizeof(name_size));
+        ss_tc << name;
+        ss_tc.write((const char *)&data_size, sizeof(data_size));
+        ss_tc << data;
+
+        write_to_procfs("TestCase", crete_replay_procfs);
+        write_to_procfs(ss_tc.str(), crete_replay_procfs);
+    }
 }
 
 void CreteReplay::replay()
@@ -752,6 +814,9 @@ void CreteReplay::replay()
         {
             break;
         }
+
+        // check for kernel mode
+        setup_kernel_mode(*it);
 
         ofs_replay_log << "====================================================================\n";
         ofs_replay_log << "Start to replay tc-" << dec << replayed_tc_count++ << endl;
@@ -845,10 +910,10 @@ void CreteReplay::replay()
                 m_launch_ctx_secondary.environment.insert(bp::environment::value_type(
                         CRETE_CONCOLIC_NAME_SUFFIX, "_p" + boost::lexical_cast<std::string>(++sec_cmd_count)));
 
-                bool cmd_executed = execute_command_line(*it, m_launch_ctx_secondary);
+                bool cmd_executed = execute_command_line(*it, m_launch_ctx_secondary, ofs_replay_log);
                 if(!cmd_executed)
                 {
-                    fprintf(stderr, "[CRETE Warning][crete-replay] \'%s\' executed unsuccessfully.\n", it->c_str());
+                    ofs_replay_log << "[CRETE Warning][crete-replay] \'%s\'" << it->c_str() << "executed unsuccessfully.\n";
                 }
             }
         }

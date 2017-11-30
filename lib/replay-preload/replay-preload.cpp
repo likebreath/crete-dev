@@ -345,6 +345,47 @@ static void init_crete_signal_handlers(int argc, char **argv)
     __INIT_CRETE_SIGNAL_HANDLER(SIGUSR1);
 }
 
+static void write_to_procfs(const string& msg, const fs::path &procfs)
+{
+    ofstream ifs(procfs.string().c_str());
+    if(!ifs.good())
+    {
+        fprintf(stderr, "[CRETE ERROR] replay-preload: can't open file \'%s\'\n",
+                procfs.string().c_str());
+        return;
+    }
+
+    ifs << msg;
+
+    ifs.close();
+}
+
+static void setup_kernel_mode()
+{
+    fs::path crete_replay_procfs(fs::path("/proc") / CRETE_REPLAY_PROCFS);
+
+    if(!fs::exists(crete_replay_procfs))
+        return;
+
+    // 1. write target_pid
+    uint32_t c_pid = getpid();
+    stringstream ss;
+    ss.write((const char*)&c_pid, sizeof(c_pid));
+
+    write_to_procfs("TargetPid", crete_replay_procfs);
+    write_to_procfs(ss.str(), crete_replay_procfs);
+
+    // 2. write process_suffix
+    char *p = getenv(CRETE_CONCOLIC_NAME_SUFFIX);
+    if(p)
+    {
+        string suffix(p);
+        write_to_procfs("Suffix", crete_replay_procfs);
+        write_to_procfs(suffix, crete_replay_procfs);
+    }
+
+}
+
 // ********************************************************* //
 // Hook routines for supporting crete intrinics
 
@@ -378,11 +419,19 @@ int __libc_start_main(
 
         setpgrp();
         init_crete_signal_handlers(argc, ubp_av);
-        crete::CreteReplayPreload crete_replay_preload(argc, ubp_av);
-        crete_replay_preload.setup_concolic_args();
-        crete_replay_preload.setup_concolic_files();
-        crete_replay_preload.setup_concolic_stdin();
-        crete_replay_preload.write_ck_exp();
+        setup_kernel_mode();
+
+        char *p = getenv(CRETE_CONCOLIC_NAME_SUFFIX);
+        if(p && string(p) == "_p1")
+        {
+            fprintf(stderr, "[CRETE INFO] process_1: processing args based on config file\n");
+
+            crete::CreteReplayPreload crete_replay_preload(argc, ubp_av);
+            crete_replay_preload.setup_concolic_args();
+            crete_replay_preload.setup_concolic_files();
+            crete_replay_preload.setup_concolic_stdin();
+            crete_replay_preload.write_ck_exp();
+        }
     }
     catch(...)
     {
