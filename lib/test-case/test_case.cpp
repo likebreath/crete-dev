@@ -408,7 +408,7 @@ namespace crete
         uint32_t elem_count;
         is.read(reinterpret_cast<char*>(&elem_count), sizeof(uint32_t));
 
-        assert(elem_count != 0);
+//        assert(elem_count != 0);
 
         for(uint32_t i = 0; i < elem_count; ++i)
         {
