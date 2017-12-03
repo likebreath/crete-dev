@@ -25,6 +25,7 @@ namespace crete
 CreteReplay::CreteReplay(int argc, char* argv[]) :
     m_ops_descr(make_options()),
     m_cwd(fs::current_path()),
+    m_seed_mode(false),
     m_init_sandbox(true),
     m_enable_log(false)
 {
@@ -54,6 +55,9 @@ po::options_description CreteReplay::make_options()
         ("log,l", po::bool_switch(), "enable log the output of replayed programs")
         ("exploitable-check,x", po::value<fs::path>(), "path to the output of exploitable-check")
         ("explo-check-script,r", po::value<fs::path>(), "path to the script to check exploitable with gdb replay")
+
+        ("auto-replay,a", po::value<fs::path>(), "enable automatic replay on system start with given input folder (crete-dispatch output folder)")
+        ("clear-auto-replay", po::bool_switch(), "clear the auto-replay for the given input folder")
         ;
 
     return desc;
@@ -82,6 +86,14 @@ void CreteReplay::process_options(int argc, char* argv[])
     {
         cout << m_ops_descr << endl;
         exit(0);
+    }
+
+    if(m_var_map.count("auto-replay"))
+    {
+        fs::path input = m_var_map["auto-replay"].as<fs::path>();
+        bool clear = m_var_map["clear-auto-replay"].as<bool>();
+        init_auto_mode(input, clear);
+        return;
     }
 
     if(m_var_map.count("tc-dir") && m_var_map.count("config"))
@@ -700,19 +712,20 @@ static bool execute_command_line(const std::string& cmd, const bp::posix_context
         assert(0);
     }
 
+//    sync();
     bp::posix_child c = bp::posix_launch(exec, args, ctx);
 
     monitored_pid = c.get_id();
     assert(monitored_timeout != 0);
     alarm(monitored_timeout);
 
-    log << "Output from executing: " << cmd.c_str() << endl;
-    bp::pistream& is = c.get_stdout();
-    std::string line;
-    while(getline(is, line))
-    {
-        log << line << endl;
-    }
+//    log << "Output from executing: " << cmd.c_str() << endl;
+//    bp::pistream& is = c.get_stdout();
+//    std::string line;
+//    while(getline(is, line))
+//    {
+//        log << line << endl;
+//    }
 
     bp::status s = c.wait();
     alarm(0);
@@ -781,6 +794,8 @@ static void setup_kernel_mode(const fs::path& current_tc)
     }
 }
 
+static void setup_auto_mode_resume_file(fs::path auto_mode_work_dir, fs::path current_tc);
+
 void CreteReplay::replay()
 {
     init_timeout_handler();
@@ -815,11 +830,13 @@ void CreteReplay::replay()
             break;
         }
 
+        setup_auto_mode_resume_file(m_auto_mode_path, *it);
+
         // check for kernel mode
         setup_kernel_mode(*it);
 
         ofs_replay_log << "====================================================================\n";
-        ofs_replay_log << "Start to replay tc-" << dec << replayed_tc_count++ << endl;
+        ofs_replay_log << "Start to replay tc[" << dec << replayed_tc_count++ <<"] :" << it->c_str() << endl;
 
         // prepare for replay
         {
@@ -863,6 +880,8 @@ void CreteReplay::replay()
 
             std::system(exec_cmd.c_str());
 #else
+            sync();
+
             bp::posix_child proc = bp::posix_launch(m_exec, m_launch_args, m_launch_ctx);
 
             monitored_pid = proc.get_id();
@@ -901,8 +920,6 @@ void CreteReplay::replay()
 
         // execute secondary cmds
         {
-            fprintf(stderr, "sec_cmds.size() = %lu\n", m_secondary_cmds.size());
-
             unsigned int sec_cmd_count = 1;
             for(vector<string>::const_iterator it = m_secondary_cmds.begin();
                     it != m_secondary_cmds.end(); ++it) {
@@ -913,7 +930,7 @@ void CreteReplay::replay()
                 bool cmd_executed = execute_command_line(*it, m_launch_ctx_secondary, ofs_replay_log);
                 if(!cmd_executed)
                 {
-                    ofs_replay_log << "[CRETE Warning][crete-replay] \'%s\'" << it->c_str() << "executed unsuccessfully.\n";
+                    ofs_replay_log << "[CRETE Warning][crete-replay] \'" << it->c_str() << "\' executed unsuccessfully.\n";
                 }
             }
         }
@@ -921,6 +938,7 @@ void CreteReplay::replay()
     }
 
     collect_gcov_result();
+    cleanup_auto_mode();
 }
 
 // FIXME: xxx add timeout to deal with GDB hanging
@@ -1106,6 +1124,276 @@ void CreteReplay::check_exploitable(const fs::path& tc_path,
 
     write_exploitable_log(ck_exp, gdb_out, m_exploitable_out,
             tc_path, replay_log);
+}
+
+// Reference: https://stackoverflow.com/a/39146566
+void copyDirectoryRecursively(const fs::path& sourceDir, const fs::path& destinationDir)
+{
+    if (!fs::exists(sourceDir) || !fs::is_directory(sourceDir))
+    {
+        throw std::runtime_error("Source directory " + sourceDir.string() + " does not exist or is not a directory");
+    }
+    if (fs::exists(destinationDir))
+    {
+        throw std::runtime_error("Destination directory " + destinationDir.string() + " already exists");
+    }
+    if (!fs::create_directory(destinationDir))
+    {
+        throw std::runtime_error("Cannot create destination directory " + destinationDir.string());
+    }
+
+    for ( fs::recursive_directory_iterator end, dirEnt(sourceDir);
+            dirEnt!= end; ++dirEnt) {
+        const fs::path& path = dirEnt->path();
+        string relativePathStr = path.string();
+        assert(relativePathStr.find(sourceDir.string()) == 0);
+        relativePathStr.erase(0, sourceDir.string().size());
+        fs::copy(path, destinationDir / relativePathStr);
+    }
+}
+
+static const char *kdump_crash_dir = "/var/crash/crete/"; //FIXME: xxx make it portable
+static const char *collect_info_dir =  "crete_replay_info";
+static const char *auto_mode_log = "/home/test/crete-replay-auto-mode.log";
+static const char *resume_file_name = "CRETE_REPLAY_AUTO_RESUME";
+static const char *resume_tc_dir = "crete_replay_resume_tc_dir";
+
+void CreteReplay::init_auto_mode(fs::path &input, bool clear)
+{
+    fs::ofstream log(auto_mode_log, std::ios_base::app);
+    if(!log.good())
+    {
+        fprintf(stderr, "[CRETE ERROR] can't open log file: %s\n", auto_mode_log);
+        log.close();
+
+        exit(-1);
+    }
+
+    if(!fs::is_directory(input))
+    {
+        cerr << currentDateTime() << " [CRETE WARNING] Input folder does not exist for auto-replay mode: "
+            << input.string().c_str() << endl;
+        log << currentDateTime() << " [CRETE WARNING] Input folder does not exist for auto-replay mode: "
+            << input.string().c_str() << endl;
+        exit(0);
+    }
+
+    // XXX: Now only supports sub_dirs generated by crete-dispatch with distrubuted mode
+    m_auto_mode_path = fs::canonical(input);
+
+    if(clear)
+    {
+        cleanup_auto_mode();
+
+        fs::path info_dir = m_auto_mode_path / collect_info_dir;
+        if(fs::exists(info_dir))
+        {
+            fs::remove_all(info_dir);
+        }
+
+        if(fs::exists(kdump_crash_dir))
+        {
+            fs::remove_all(kdump_crash_dir);
+        }
+
+        if(fs::exists(auto_mode_log))
+        {
+            fs::remove_all(auto_mode_log);
+        }
+
+        exit(0);
+    }
+
+    fs::path resume_file(m_auto_mode_path / resume_file_name);
+    if(fs::exists(resume_file))
+    {
+        // If resumed, collect crash information
+        fs::ifstream inf(resume_file);
+        if(!inf.good())
+        {
+            cerr << currentDateTime() << " [CRETE ERROR] RESUME FILE broken: " << resume_file.string().c_str() << endl;
+            log << currentDateTime() << " [CRETE ERROR] RESUME FILE broken: " << resume_file.string().c_str() << endl;
+            exit(0);
+        }
+
+        fs::path resume_work_tc;
+        string tmp;
+        getline(inf, tmp);
+        resume_work_tc = tmp;
+        inf.close();
+
+        if(!fs::is_regular(resume_work_tc))
+        {
+            cerr << currentDateTime() << " [CRETE ERROR] invalid resume work_tc: "
+                    << resume_work_tc.string().c_str() << endl;
+            log << currentDateTime() << " [CRETE ERROR] invalid resume work_tc: "
+                    << resume_work_tc.string().c_str() << endl;
+            exit(0);
+        }
+
+        fs::path resume_info_dir =  m_auto_mode_path / collect_info_dir / currentDateTime();
+        fs::create_directories(resume_info_dir);
+        // Collect test-case
+        fs::copy_file(resume_work_tc, resume_info_dir / resume_work_tc.filename());
+        fs::remove(resume_work_tc);
+
+        // Collect kernel crash log
+        fs::path kdump_dir(kdump_crash_dir);
+        if(!fs::is_directory(kdump_dir))
+        {
+            cerr << currentDateTime() << " [CRETE ERROR] invalid kdump_crash_dir: "
+                    << kdump_crash_dir << endl;
+            log << currentDateTime() << " [CRETE ERROR] invalid kdump_crash_dir: "
+                    << kdump_crash_dir << endl;
+            exit(0);
+        }
+
+        for ( fs::directory_iterator itr( kdump_dir );
+              itr != fs::directory_iterator();
+              ++itr ){
+            fs::path src_dir = itr->path();
+            if(!fs::is_directory(src_dir))
+                continue;
+
+            copyDirectoryRecursively(src_dir, resume_info_dir / src_dir.filename());
+            fs::remove_all(src_dir);
+        }
+    } else {
+        // If not resumed, initial start, setup auto-replay
+        fs::path tc_dir = m_auto_mode_path / "test-case-parsed";
+        if(!fs::is_directory(tc_dir))
+        {
+            cerr << currentDateTime() << " [CRETE ERROR] wrong folder structure, can't find: "
+                    << tc_dir.string().c_str() << endl;
+            log << currentDateTime() << " [CRETE ERROR] wrong folder structure, can't find: "
+                    << tc_dir.string().c_str() << endl;
+            exit(0);
+        }
+
+        // copy "test-case-parsed" folder to "auto_tc_dir"
+        fs::path auto_tc_dir = m_auto_mode_path / resume_tc_dir;
+        if(fs::exists(auto_tc_dir))
+        {
+            fs::remove_all(auto_tc_dir);
+        }
+        copyDirectoryRecursively(tc_dir, auto_tc_dir);
+    }
+
+    m_tc_dir = m_auto_mode_path / resume_tc_dir;
+    m_config = m_auto_mode_path / "guest-data" / "crete-guest-config.serialized";
+    m_enable_log = true;
+
+    if(!fs::is_directory(m_tc_dir))
+    {
+        cerr << currentDateTime() << " [CRETE ERROR] wrong folder structure, can't find: "
+                << m_tc_dir.string().c_str() << endl;
+        log << currentDateTime() << " [CRETE ERROR] wrong folder structure, can't find: "
+                << m_tc_dir.string().c_str() << endl;
+        exit(0);
+    }
+
+    if(!fs::exists(m_config))
+    {
+        cerr << currentDateTime() << " [CRETE ERROR] wrong folder structure, can't find: "
+                << m_config.string().c_str() << endl;
+        log << currentDateTime() << " [CRETE ERROR] wrong folder structure, can't find: "
+                << m_config.string().c_str() << endl;
+        exit(0);
+    }
+
+    log.close();
+}
+
+void CreteReplay::cleanup_auto_mode() const
+{
+    if(m_auto_mode_path.empty())
+    {
+        return;
+    }
+
+    fs::path resume_file = m_auto_mode_path / resume_file_name;
+    if(fs::exists(resume_file))
+    {
+        fs::remove_all(resume_file);
+    }
+
+    fs::path __resume_tc = m_auto_mode_path / resume_tc_dir;
+    if(fs::exists(__resume_tc))
+    {
+        fs::remove_all(__resume_tc);
+    }
+
+    if(fs::exists(auto_mode_log))
+    {
+        if(fs::is_directory(m_auto_mode_path / collect_info_dir))
+        {
+            fs::copy_file(auto_mode_log,
+                    m_auto_mode_path / collect_info_dir / fs::path(auto_mode_log).filename(),
+                    fs::copy_option::overwrite_if_exists);
+        }
+
+        fs::remove_all(auto_mode_log);
+    }
+
+    if(fs::exists(kdump_crash_dir))
+    {
+        fs::remove_all(kdump_crash_dir);
+    }
+
+    fs::path log_file = m_cwd / replay_log_file;
+    if(fs::exists(log_file))
+    {
+        if(fs::is_directory(m_auto_mode_path / collect_info_dir))
+        {
+            fs::copy_file(log_file,
+                    m_auto_mode_path / collect_info_dir / replay_log_file,
+                    fs::copy_option::overwrite_if_exists);
+        }
+
+        fs::remove_all(log_file);
+    }
+}
+
+static void setup_auto_mode_resume_file(fs::path auto_mode_work_dir, fs::path current_tc)
+{
+    static fs::path previous_tc;
+
+    if(auto_mode_work_dir.empty())
+        return;
+
+    if(!previous_tc.empty())
+    {
+        assert(fs::is_regular(previous_tc));
+        fs::remove(previous_tc);
+    }
+
+    fs::ofstream log(auto_mode_log, std::ios_base::app);
+    if(!log.good())
+    {
+        fprintf(stderr, "[CRETE ERROR] can't open log file: %s\n", auto_mode_log);
+        log.close();
+
+        exit(-1);
+    }
+
+    fs::path resume_file(auto_mode_work_dir / resume_file_name);
+
+    fs::ofstream onf(resume_file);
+    if(!onf.good())
+    {
+        cerr << currentDateTime() << " [CRETE ERROR] can't write RESUME FILE: " << resume_file.string().c_str() << endl;
+        log << currentDateTime() << " [CRETE ERROR] can't write RESUME FILE: " << resume_file.string().c_str() << endl;
+
+        exit(0);
+    }
+    fs::path work_tc = fs::canonical(current_tc);
+    onf << work_tc.string() << endl;
+    onf.close();
+
+    previous_tc = current_tc;
+    log.close();
+
+    sync();
 }
 
 } // namespace crete

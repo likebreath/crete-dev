@@ -44,6 +44,7 @@ private:
     fs::path m_environment;
     bool m_init_sandbox;
     bool m_enable_log;
+    fs::path m_auto_mode_path;
     fs::path m_guest_config_serialized;
     fs::path m_current_tc;
 
@@ -56,6 +57,10 @@ public:
 private:
     boost::program_options::options_description make_options();
     void process_options(int argc, char* argv[]);
+
+    void init_auto_mode(fs::path &input, bool clear);
+    void cleanup_auto_mode() const;
+
     void setup_launch();
 
     void init_sandbox();
