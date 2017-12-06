@@ -34,6 +34,7 @@ MODULE_PARM_DESC(target_module, "The name of target module to enable probe on ke
 static void (*_crete_make_concolic)(void*, size_t, const char *);
 static void (*_crete_kernel_oops)(void);
 
+static int entry_handler_default(struct kretprobe_instance *ri, struct pt_regs *regs);
 static int ret_handler_make_concolic(struct kretprobe_instance *ri, struct pt_regs *regs);
 
 #define __CRETE_DEF_KPROBE(func_name)                                                              \
@@ -49,6 +50,7 @@ static int ret_handler_make_concolic(struct kretprobe_instance *ri, struct pt_re
         static struct kretprobe kretp_##func_name = {                                              \
                 .kp.symbol_name = #func_name,                                                      \
                 .handler = ret_handler_make_concolic,                                              \
+                .entry_handler = entry_handler_default,                                            \
         };
 
 #define __CRETE_REG_KPROBE(func_name)                                          \
@@ -124,6 +126,14 @@ static inline void unregister_probes(void)
 //    _crete_make_concolic(&regs->cx, sizeof(int), "e1000_ioctl_arg3");
 //    return 0;
 //}
+
+static int entry_handler_default(struct kretprobe_instance *ri, struct pt_regs *regs)
+{
+    if(!current->mm)
+        return 1;  // Skip kernel threads
+    else
+        return 0;
+}
 
 // Only inject concolic values if:
 // 1. its caller is within target_module AND
