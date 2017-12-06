@@ -52,6 +52,7 @@ static int ret_handler_make_concolic(struct kretprobe_instance *ri, struct pt_re
         };
 
 #define __CRETE_REG_KPROBE(func_name)                                          \
+        if(kallsyms_lookup_name(#func_name))                                   \
         {                                                                      \
             if(register_kretprobe(&kretp_##func_name))                         \
             {                                                                  \
@@ -60,7 +61,12 @@ static int ret_handler_make_concolic(struct kretprobe_instance *ri, struct pt_re
             }                                                                  \
         }
 
-#define __CRETE_UNREG_KPROBE(func_name)  register_kretprobe(&kretp_##func_name);
+#define __CRETE_UNREG_KPROBE(func_name)                 \
+        if(kallsyms_lookup_name(#func_name))            \
+        {                                               \
+            unregister_kretprobe(&kretp_##func_name);   \
+        }
+
 
 /* ------------------------------- */
 // Define interested functions to hook
