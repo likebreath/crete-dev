@@ -82,6 +82,18 @@ __CRETE_DEF_KPROBE_RET_CONCOLIC(__napi_alloc_skb)
 __CRETE_DEF_KPROBE_RET_CONCOLIC(__alloc_pages_nodemask)
 __CRETE_DEF_KPROBE_RET_CONCOLIC(netdev_alloc_frag)
 __CRETE_DEF_KPROBE_RET_CONCOLIC(alloc_etherdev_mqs)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(__alloc_ei_netdev)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(alloc_pages_current)
+//__CRETE_DEF_KPROBE_RET_CONCOLIC(arch_dma_alloc_attrs)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(dma_pool_alloc)
+//__CRETE_DEF_KPROBE_RET_CONCOLIC(kmalloc_caches)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(kmem_cache_alloc_trace)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(__netdev_alloc_skb)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(scsi_host_alloc)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_dma_alloc_pages)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_hdac_bus_alloc_stream_pages)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pcm_lib_malloc_pages)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pcm_lib_preallocate_pages_for_all)
 //__CRETE_DEF_KPROBE_RET_CONCOLIC()
 
 static inline int register_probes(void)
@@ -96,6 +108,18 @@ static inline int register_probes(void)
     __CRETE_REG_KPROBE(__alloc_pages_nodemask);
     __CRETE_REG_KPROBE(netdev_alloc_frag);
     __CRETE_REG_KPROBE(alloc_etherdev_mqs);
+    __CRETE_REG_KPROBE(__alloc_ei_netdev);
+    __CRETE_REG_KPROBE(alloc_pages_current);
+//    __CRETE_REG_KPROBE(arch_dma_alloc_attrs);
+    __CRETE_REG_KPROBE(dma_pool_alloc);
+//    __CRETE_REG_KPROBE(kmalloc_caches);
+    __CRETE_REG_KPROBE(kmem_cache_alloc_trace);
+    __CRETE_REG_KPROBE(__netdev_alloc_skb);
+    __CRETE_REG_KPROBE(scsi_host_alloc);
+    __CRETE_REG_KPROBE(snd_dma_alloc_pages);
+    __CRETE_REG_KPROBE(snd_hdac_bus_alloc_stream_pages);
+    __CRETE_REG_KPROBE(snd_pcm_lib_malloc_pages);
+    __CRETE_REG_KPROBE(snd_pcm_lib_preallocate_pages_for_all);
 //    __CRETE_REG_KPROBE();
 
     return 0;
@@ -113,6 +137,18 @@ static inline void unregister_probes(void)
     __CRETE_UNREG_KPROBE(__alloc_pages_nodemask);
     __CRETE_UNREG_KPROBE(netdev_alloc_frag);
     __CRETE_UNREG_KPROBE(alloc_etherdev_mqs);
+    __CRETE_UNREG_KPROBE(__alloc_ei_netdev);
+    __CRETE_UNREG_KPROBE(alloc_pages_current);
+//    __CRETE_UNREG_KPROBE(arch_dma_alloc_attrs);
+    __CRETE_UNREG_KPROBE(dma_pool_alloc);
+//    __CRETE_UNREG_KPROBE(kmalloc_caches);
+    __CRETE_UNREG_KPROBE(kmem_cache_alloc_trace);
+    __CRETE_UNREG_KPROBE(__netdev_alloc_skb);
+    __CRETE_UNREG_KPROBE(scsi_host_alloc);
+    __CRETE_UNREG_KPROBE(snd_dma_alloc_pages);
+    __CRETE_UNREG_KPROBE(snd_hdac_bus_alloc_stream_pages);
+    __CRETE_UNREG_KPROBE(snd_pcm_lib_malloc_pages);
+    __CRETE_UNREG_KPROBE(snd_pcm_lib_preallocate_pages_for_all);
 //    __CRETE_UNREG_KPROBE();
 }
 
