@@ -1,5 +1,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/version.h>
 #include <linux/kprobes.h>
 
 MODULE_LICENSE("GPL");
@@ -176,8 +177,14 @@ static int entry_handler_default(struct kretprobe_instance *ri, struct pt_regs *
 // 2. the convention on return value holds
 static int ret_handler_make_concolic(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(3,17,0)
+    if(!(target_module.m_mod_loaded &&
+         (within_module_core((unsigned long)ri->ret_addr, &target_module.m_mod) ||
+          within_module_init((unsigned long)ri->ret_addr, &target_module.m_mod))))
+#else
     if(!(target_module.m_mod_loaded &&
          within_module((unsigned long)ri->ret_addr, &target_module.m_mod)))
+#endif
     {
         return 0;
     }
@@ -230,8 +237,15 @@ static int crete_kapi_module_event(struct notifier_block *self, unsigned long ev
     case MODULE_STATE_COMING:
         printk(KERN_INFO "MODULE_STATE_COMING: %s\n", m->name);
         target_module.m_mod_loaded = 1;
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,4,0)
+        target_module.m_mod.module_core = m->module_core;
+        target_module.m_mod.core_size = m->core_size;
+        target_module.m_mod.module_init = m->module_init;
+        target_module.m_mod.init_size = m->init_size;
+#else
         target_module.m_mod.core_layout = m->core_layout;
         target_module.m_mod.init_layout = m->init_layout;
+#endif
         break;
 
     case MODULE_STATE_GOING:
