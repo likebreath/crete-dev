@@ -35,6 +35,10 @@ MODULE_PARM_DESC(target_module, "The name of target module to enable probe on ke
 static void (*_crete_make_concolic)(void*, size_t, const char *);
 static void (*_crete_kernel_oops)(void);
 
+static bool target_module_probes = false;
+static void (*_crete_register_probes_target_module)(void);
+static void (*_crete_unregister_probes_target_module)(void);
+
 static int entry_handler_default(struct kretprobe_instance *ri, struct pt_regs *regs);
 static int ret_handler_make_concolic(struct kretprobe_instance *ri, struct pt_regs *regs);
 
@@ -246,11 +250,15 @@ static int crete_kapi_module_event(struct notifier_block *self, unsigned long ev
         target_module.m_mod.core_layout = m->core_layout;
         target_module.m_mod.init_layout = m->init_layout;
 #endif
+        if(target_module_probes)
+            _crete_register_probes_target_module();
         break;
 
     case MODULE_STATE_GOING:
         printk(KERN_INFO "MODULE_STATE_GOING: %s\n", m->name);
         target_module.m_mod_loaded = 0;
+        if(target_module_probes)
+            _crete_unregister_probes_target_module();
         break;
 
     case MODULE_STATE_LIVE:
@@ -274,6 +282,16 @@ static inline int init_crete_intrinsics(void)
     if (!(_crete_make_concolic && _crete_kernel_oops)) {
         printk(KERN_INFO "[crete] not all function found, please check crete-intrinsics.ko\n");
         return -1;
+    }
+
+    _crete_register_probes_target_module = (void *)kallsyms_lookup_name("crete_register_probes_e1000");
+    _crete_unregister_probes_target_module = (void *)kallsyms_lookup_name("crete_unregister_probes_e1000");
+
+    if(_crete_register_probes_target_module &&
+            _crete_unregister_probes_target_module)
+    {
+        printk(KERN_INFO "target_module_probes found!\n");
+        target_module_probes = true;
     }
 
     return 0;
