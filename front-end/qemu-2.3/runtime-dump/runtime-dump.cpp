@@ -806,7 +806,7 @@ string RuntimeEnv::getOutputFilename(const string &fileName) const
 void RuntimeEnv::writeConcolics()
 {
     assert(!m_concolics.empty());
-    assert(m_concolics.size() == m_make_concolic_order.size());
+    assert(m_concolics.size() >= m_make_concolic_order.size());
 
     ofstream o_fs(getOutputFilename("dump_mo_symbolics.txt").c_str());
     assert(o_fs.good());
