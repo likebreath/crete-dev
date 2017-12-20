@@ -1340,6 +1340,7 @@ po::options_description CreteConfig::make_options()
             ("help,h", "displays help message")
             ("suite,s", po::value<string>(), "generate configurations for suite: klee, dase, basetools, parse-cmd")
             ("path,p", po::value<fs::path>(), "input file with sample commandline invocation for generating configs, required for parse-cmd")
+            ("config,c", po::value<fs::path>(), "verify input config file and generate a readable output")
         ;
 
     return desc;
@@ -1365,6 +1366,40 @@ void CreteConfig::process_options()
     {
         cerr << m_ops_descr << endl;
         exit(0);
+    }
+
+    if(m_var_map.count("config"))
+    {
+        fs::path input_path =  m_var_map["config"].as<fs::path>();
+        input_path = fs::canonical(input_path);
+
+        ifstream ifs(input_path.string());
+
+        if(!ifs.good())
+        {
+            BOOST_THROW_EXCEPTION(Exception() << err::file_open_failed(input_path.string()));
+        }
+
+        config::RunConfiguration input_config;
+        try
+        {
+            boost::archive::text_iarchive ia(ifs);
+            ia >> input_config;
+        }
+        catch(std::exception& e)
+        {
+            cerr << boost::diagnostic_information(e) << endl;
+            BOOST_THROW_EXCEPTION(e);
+        };
+
+        fs::path out_config_file = input_path.string() + ".readable";
+        boost::property_tree::ptree pt_config;
+        input_config.write_mini(pt_config);
+        boost::property_tree::write_xml(
+                out_config_file.string(), pt_config, std::locale(),
+                boost::property_tree::xml_writer_make_settings<std::string>('\t', 1));
+
+        return ;
     }
 
     if(m_var_map.count("suite"))

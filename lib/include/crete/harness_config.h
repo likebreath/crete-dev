@@ -431,6 +431,16 @@ void HarnessConfiguration::write(boost::property_tree::ptree& config) const
         stdin_node.put("<xmlattr>.value", stdin_.value.data());
         stdin_node.put("<xmlattr>.concolic", stdin_.concolic);
     }
+
+    if(!secondary_cmds_.empty())
+    {
+        boost::property_tree::ptree& secondary_cmd_node = config.put_child("crete.secondary_cmds", boost::property_tree::ptree());
+        BOOST_FOREACH(const std::string& cmd, secondary_cmds_)
+        {
+            secondary_cmd_node.add("secondary_cmd", cmd);
+        }
+    }
+
 }
 
 inline
