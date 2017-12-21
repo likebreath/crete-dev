@@ -2,6 +2,7 @@
 #include <linux/module.h>
 #include <linux/version.h>
 #include <linux/kprobes.h>
+#include <linux/kallsyms.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Bo Chen (chenbo@pdx.edu)");
@@ -14,6 +15,8 @@ MODULE_DESCRIPTION("CRETE probes for kernel API functions to inject concolic val
 #else
 #define CRETE_DBG(x) do { } while(0)
 #endif
+
+static char crete_ksym_symbol[KSYM_SYMBOL_LEN*2];
 
 struct TargetModuleInfo
 {
@@ -208,7 +211,15 @@ static int ret_handler_make_concolic(struct kretprobe_instance *ri, struct pt_re
 
     CRETE_DBG(printk(KERN_INFO "ret_handler \'%s\': ret = %p", ri->rp->kp.symbol_name, (void *)regs->ax););
 
-    _crete_make_concolic(&regs->ax, sizeof(regs->ax), ri->rp->kp.symbol_name);
+    // kallsyms_lookup((unsigned long )ri->ret_addr, &size, &offset, &modname);
+    crete_ksym_symbol[0] = '\0';
+    sprint_symbol(crete_ksym_symbol, (unsigned long )ri->ret_addr);
+    strreplace(crete_ksym_symbol, ' ', '_');
+    strcat(crete_ksym_symbol, "[");
+    strcat(crete_ksym_symbol, ri->rp->kp.symbol_name);
+    strcat(crete_ksym_symbol, "]");
+
+    _crete_make_concolic(&regs->ax, sizeof(regs->ax), crete_ksym_symbol);
 
     return 0;
 }
