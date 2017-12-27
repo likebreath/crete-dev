@@ -1,8 +1,6 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/version.h>
 #include <linux/kprobes.h>
-#include <linux/kallsyms.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Bo Chen (chenbo@pdx.edu)");
@@ -16,6 +14,9 @@ MODULE_DESCRIPTION("CRETE probes for kernel API functions to inject concolic val
 #define CRETE_DBG(x) do { } while(0)
 #endif
 
+#if defined(CRETE_USED_OLD_MODULE_LAYOUT)
+#define __USED_OLD_MODULE_LAYOUT
+#endif
 static char crete_ksym_symbol[KSYM_SYMBOL_LEN*2];
 
 struct TargetModuleInfo
@@ -184,14 +185,9 @@ static int entry_handler_default(struct kretprobe_instance *ri, struct pt_regs *
 // 2. the convention on return value holds
 static int ret_handler_make_concolic(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(3,17,0)
+    // NOTE: xxx inject concolics only for module_core (not for module_init)
     if(!(target_module.m_mod_loaded &&
-         (within_module_core((unsigned long)ri->ret_addr, &target_module.m_mod) ||
-          within_module_init((unsigned long)ri->ret_addr, &target_module.m_mod))))
-#else
-    if(!(target_module.m_mod_loaded &&
-         within_module((unsigned long)ri->ret_addr, &target_module.m_mod)))
-#endif
+         (within_module_core((unsigned long)ri->ret_addr, &target_module.m_mod))))
     {
         return 0;
     }
@@ -209,17 +205,31 @@ static int ret_handler_make_concolic(struct kretprobe_instance *ri, struct pt_re
         return 0;
     }
 
-    CRETE_DBG(printk(KERN_INFO "ret_handler \'%s\': ret = %p", ri->rp->kp.symbol_name, (void *)regs->ax););
+    {
+        unsigned long offset;
 
-    // kallsyms_lookup((unsigned long )ri->ret_addr, &size, &offset, &modname);
-    crete_ksym_symbol[0] = '\0';
-    sprint_symbol(crete_ksym_symbol, (unsigned long )ri->ret_addr);
-    strreplace(crete_ksym_symbol, ' ', '_');
-    strcat(crete_ksym_symbol, "[");
-    strcat(crete_ksym_symbol, ri->rp->kp.symbol_name);
-    strcat(crete_ksym_symbol, "]");
+#if defined(__USED_OLD_MODULE_LAYOUT)
+        offset = (unsigned long)ri->ret_addr - (unsigned long)target_module.m_mod.module_core;
+#else
+        offset = (unsigned long)ri->ret_addr - (unsigned long)target_module.m_mod.core_layout.base;
+#endif
 
-    _crete_make_concolic(&regs->ax, sizeof(regs->ax), crete_ksym_symbol);
+        // Naming convention: func_name[mod_name.module_core+offset]
+        // 'offset' is normally offset from .text section of a .ko file,
+        // and can be used with addr2line to find the line number in source
+        // code, e.g.: 'eu-addr2line -f -e $(modinfo -n mod_name) -j .text offset'
+        sprintf(crete_ksym_symbol, "%s[%s.module_core+%#lx]",
+                ri->rp->kp.symbol_name, target_module.m_name, offset);
+
+        CRETE_DBG(
+        printk(KERN_INFO "ret_handler \'%s\': ret = %p (offset = %p)\n"
+                "crete_ksym_symbol = %s\n",
+                ri->rp->kp.symbol_name, (void *)regs->ax, (void *)offset,
+                crete_ksym_symbol);
+        );
+
+        _crete_make_concolic(&regs->ax, sizeof(regs->ax), crete_ksym_symbol);
+    }
 
     return 0;
 }
@@ -252,7 +262,7 @@ static int crete_kapi_module_event(struct notifier_block *self, unsigned long ev
     case MODULE_STATE_COMING:
         printk(KERN_INFO "MODULE_STATE_COMING: %s\n", m->name);
         target_module.m_mod_loaded = 1;
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,4,0)
+#if defined(__USED_OLD_MODULE_LAYOUT)
         target_module.m_mod.module_core = m->module_core;
         target_module.m_mod.core_size = m->core_size;
         target_module.m_mod.module_init = m->module_init;
