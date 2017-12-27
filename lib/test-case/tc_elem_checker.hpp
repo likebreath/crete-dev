@@ -36,6 +36,8 @@ static vector<string> init_ptr_ret_funcs()
     list.push_back("pci_ioremap_bar");
     list.push_back("snd_pci_quirk_lookup");
 
+    list.push_back("dma_pool_create");
+
     return list;
 };
 

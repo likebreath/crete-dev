@@ -83,19 +83,19 @@ static int ret_handler_make_concolic(struct kretprobe_instance *ri, struct pt_re
 // Define interested functions to hook
 __CRETE_DEF_KPROBE(oops_enter);
 
+// alloc related
 __CRETE_DEF_KPROBE_RET_CONCOLIC(__kmalloc) // kmalloc, kcalloc
 __CRETE_DEF_KPROBE_RET_CONCOLIC(__vmalloc)
 __CRETE_DEF_KPROBE_RET_CONCOLIC(vzalloc)
 __CRETE_DEF_KPROBE_RET_CONCOLIC(__alloc_skb) // alloc_skb
 __CRETE_DEF_KPROBE_RET_CONCOLIC(__napi_alloc_skb)
-__CRETE_DEF_KPROBE_RET_CONCOLIC(__alloc_pages_nodemask)
+//__CRETE_DEF_KPROBE_RET_CONCOLIC(__alloc_pages_nodemask) // invoked from a loop in e1000
 __CRETE_DEF_KPROBE_RET_CONCOLIC(netdev_alloc_frag)
 __CRETE_DEF_KPROBE_RET_CONCOLIC(alloc_etherdev_mqs)
 __CRETE_DEF_KPROBE_RET_CONCOLIC(__alloc_ei_netdev)
 __CRETE_DEF_KPROBE_RET_CONCOLIC(alloc_pages_current)
-//__CRETE_DEF_KPROBE_RET_CONCOLIC(arch_dma_alloc_attrs)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(arch_dma_alloc_attrs)
 __CRETE_DEF_KPROBE_RET_CONCOLIC(dma_pool_alloc)
-//__CRETE_DEF_KPROBE_RET_CONCOLIC(kmalloc_caches)
 __CRETE_DEF_KPROBE_RET_CONCOLIC(kmem_cache_alloc_trace)
 __CRETE_DEF_KPROBE_RET_CONCOLIC(__netdev_alloc_skb)
 __CRETE_DEF_KPROBE_RET_CONCOLIC(scsi_host_alloc)
@@ -103,25 +103,54 @@ __CRETE_DEF_KPROBE_RET_CONCOLIC(snd_dma_alloc_pages)
 __CRETE_DEF_KPROBE_RET_CONCOLIC(snd_hdac_bus_alloc_stream_pages)
 __CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pcm_lib_malloc_pages)
 __CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pcm_lib_preallocate_pages_for_all)
+
+// PCI: ptr ret
+__CRETE_DEF_KPROBE_RET_CONCOLIC(pci_get_device)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(pci_get_domain_bus_and_slot)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(pci_iomap)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(pci_ioremap_bar)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pci_quirk_lookup)
+// PCI: int ret
+__CRETE_DEF_KPROBE_RET_CONCOLIC(pci_choose_state)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(pci_enable_device)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(pci_enable_device_mem)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(pci_enable_msi_range)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(__pci_enable_wake)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(pci_prepare_to_sleep)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(__pci_register_driver)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(pci_request_region)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(pci_request_regions)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(pci_request_selected_regions)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(pci_save_state)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(pci_select_bars)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(pci_set_mwi)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(pci_set_power_state)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(pci_wake_from_d3)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(pcix_get_mmrbc)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(pcix_set_mmrbc)
+
+// DMA:
+__CRETE_DEF_KPROBE_RET_CONCOLIC(dma_pool_create)
+__CRETE_DEF_KPROBE_RET_CONCOLIC(dma_supported)
+
 //__CRETE_DEF_KPROBE_RET_CONCOLIC()
 
 static inline int register_probes(void)
 {
     __CRETE_REG_KPROBE(oops_enter);
 
+    // alloc related
     __CRETE_REG_KPROBE(__kmalloc);
     __CRETE_REG_KPROBE(__vmalloc);
     __CRETE_REG_KPROBE(vzalloc);
     __CRETE_REG_KPROBE(__alloc_skb);
     __CRETE_REG_KPROBE( __napi_alloc_skb);
-    __CRETE_REG_KPROBE(__alloc_pages_nodemask);
     __CRETE_REG_KPROBE(netdev_alloc_frag);
     __CRETE_REG_KPROBE(alloc_etherdev_mqs);
     __CRETE_REG_KPROBE(__alloc_ei_netdev);
     __CRETE_REG_KPROBE(alloc_pages_current);
-//    __CRETE_REG_KPROBE(arch_dma_alloc_attrs);
+    __CRETE_REG_KPROBE(arch_dma_alloc_attrs);
     __CRETE_REG_KPROBE(dma_pool_alloc);
-//    __CRETE_REG_KPROBE(kmalloc_caches);
     __CRETE_REG_KPROBE(kmem_cache_alloc_trace);
     __CRETE_REG_KPROBE(__netdev_alloc_skb);
     __CRETE_REG_KPROBE(scsi_host_alloc);
@@ -129,6 +158,36 @@ static inline int register_probes(void)
     __CRETE_REG_KPROBE(snd_hdac_bus_alloc_stream_pages);
     __CRETE_REG_KPROBE(snd_pcm_lib_malloc_pages);
     __CRETE_REG_KPROBE(snd_pcm_lib_preallocate_pages_for_all);
+
+    // PCI: ptr ret
+    __CRETE_REG_KPROBE(pci_get_device)
+    __CRETE_REG_KPROBE(pci_get_domain_bus_and_slot)
+    __CRETE_REG_KPROBE(pci_iomap)
+    __CRETE_REG_KPROBE(pci_ioremap_bar)
+    __CRETE_REG_KPROBE(snd_pci_quirk_lookup)
+
+    // PCI: int return
+    __CRETE_REG_KPROBE(pci_choose_state)
+    __CRETE_REG_KPROBE(pci_enable_device)
+    __CRETE_REG_KPROBE(pci_enable_device_mem)
+    __CRETE_REG_KPROBE(pci_enable_msi_range)
+    __CRETE_REG_KPROBE(__pci_enable_wake)
+    __CRETE_REG_KPROBE(pci_prepare_to_sleep)
+    __CRETE_REG_KPROBE(__pci_register_driver)
+    __CRETE_REG_KPROBE(pci_request_region)
+    __CRETE_REG_KPROBE(pci_request_regions)
+    __CRETE_REG_KPROBE(pci_request_selected_regions)
+    __CRETE_REG_KPROBE(pci_save_state)
+    __CRETE_REG_KPROBE(pci_select_bars)
+    __CRETE_REG_KPROBE(pci_set_mwi)
+    __CRETE_REG_KPROBE(pci_set_power_state)
+    __CRETE_REG_KPROBE(pci_wake_from_d3)
+    __CRETE_REG_KPROBE(pcix_get_mmrbc)
+    __CRETE_REG_KPROBE(pcix_set_mmrbc)
+
+    // DMA:
+    __CRETE_REG_KPROBE(dma_pool_create);
+    __CRETE_REG_KPROBE(dma_supported);
 //    __CRETE_REG_KPROBE();
 
     return 0;
@@ -143,14 +202,12 @@ static inline void unregister_probes(void)
     __CRETE_UNREG_KPROBE(vzalloc);
     __CRETE_UNREG_KPROBE(__alloc_skb);
     __CRETE_UNREG_KPROBE( __napi_alloc_skb);
-    __CRETE_UNREG_KPROBE(__alloc_pages_nodemask);
     __CRETE_UNREG_KPROBE(netdev_alloc_frag);
     __CRETE_UNREG_KPROBE(alloc_etherdev_mqs);
     __CRETE_UNREG_KPROBE(__alloc_ei_netdev);
     __CRETE_UNREG_KPROBE(alloc_pages_current);
-//    __CRETE_UNREG_KPROBE(arch_dma_alloc_attrs);
+    __CRETE_UNREG_KPROBE(arch_dma_alloc_attrs);
     __CRETE_UNREG_KPROBE(dma_pool_alloc);
-//    __CRETE_UNREG_KPROBE(kmalloc_caches);
     __CRETE_UNREG_KPROBE(kmem_cache_alloc_trace);
     __CRETE_UNREG_KPROBE(__netdev_alloc_skb);
     __CRETE_UNREG_KPROBE(scsi_host_alloc);
@@ -158,6 +215,35 @@ static inline void unregister_probes(void)
     __CRETE_UNREG_KPROBE(snd_hdac_bus_alloc_stream_pages);
     __CRETE_UNREG_KPROBE(snd_pcm_lib_malloc_pages);
     __CRETE_UNREG_KPROBE(snd_pcm_lib_preallocate_pages_for_all);
+
+    // PCI: ptr ret
+    __CRETE_UNREG_KPROBE(pci_get_device)
+    __CRETE_UNREG_KPROBE(pci_get_domain_bus_and_slot)
+    __CRETE_UNREG_KPROBE(pci_iomap)
+    __CRETE_UNREG_KPROBE(pci_ioremap_bar)
+    __CRETE_UNREG_KPROBE(snd_pci_quirk_lookup)
+    // PCI: int ret
+    __CRETE_UNREG_KPROBE(pci_choose_state)
+    __CRETE_UNREG_KPROBE(pci_enable_device)
+    __CRETE_UNREG_KPROBE(pci_enable_device_mem)
+    __CRETE_UNREG_KPROBE(pci_enable_msi_range)
+    __CRETE_UNREG_KPROBE(__pci_enable_wake)
+    __CRETE_UNREG_KPROBE(pci_prepare_to_sleep)
+    __CRETE_UNREG_KPROBE(__pci_register_driver)
+    __CRETE_UNREG_KPROBE(pci_request_region)
+    __CRETE_UNREG_KPROBE(pci_request_regions)
+    __CRETE_UNREG_KPROBE(pci_request_selected_regions)
+    __CRETE_UNREG_KPROBE(pci_save_state)
+    __CRETE_UNREG_KPROBE(pci_select_bars)
+    __CRETE_UNREG_KPROBE(pci_set_mwi)
+    __CRETE_UNREG_KPROBE(pci_set_power_state)
+    __CRETE_UNREG_KPROBE(pci_wake_from_d3)
+    __CRETE_UNREG_KPROBE(pcix_get_mmrbc)
+    __CRETE_UNREG_KPROBE(pcix_set_mmrbc)
+
+    // DMA:
+    __CRETE_UNREG_KPROBE(dma_pool_create);
+    __CRETE_UNREG_KPROBE(dma_supported);
 //    __CRETE_UNREG_KPROBE();
 }
 
