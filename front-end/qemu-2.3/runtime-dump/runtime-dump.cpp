@@ -9,6 +9,7 @@ extern "C" {
 #include "tcg.h"
 
 #include <boost/archive/binary_oarchive.hpp>
+#include <boost/unordered_set.hpp>
 
 #include <crete/test_case.h>
 #include <crete/stacktrace.h>
@@ -67,6 +68,78 @@ static const uint32_t CRETE_TRACING_WINDOW_SIZE = 10000;
 
 /***********************************/
 /* External interface for C++ code */
+
+//TODO: xxx Place holder
+uint32_t qklee_get_vd_op_index()
+{
+    return 0;
+}
+void qklee_add_drive_trace_marker(const vector<uint32_t>& index)
+{
+    return;
+}
+
+// Interface for Virtual Device Trace
+class VirtualDeviceTraceMarker
+{
+private:
+    boost::unordered_set<uint64_t> m_accessors;
+    vector<uint32_t> m_op_index;
+    creteVDTable_ty m_vd_table;
+
+public:
+    VirtualDeviceTraceMarker();
+
+    void add_op_index(uint64_t vaddr, uint64_t physaddr,
+            uint32_t size, uint64_t value, int is_write, uint64_t accessor)
+    {
+        if (m_accessors.find(accessor) !=
+                m_accessors.end())
+        {
+            m_op_index.push_back(qklee_get_vd_op_index());
+            m_vd_table.push_back(make_pair(vaddr, physaddr));
+
+            CRETE_DBG_VDT(
+            fprintf(stderr, "[CRETE_DBG_VDT] add_op_index(): added "
+                    "[vaddr = %p, physaddr = %p, size = %u, value = %lu, is_write = %d, accessor = %p]\n",
+                    (void *)vaddr, (void *)physaddr, size, value, is_write, (void *)accessor);
+            );
+        }
+    }
+    void clear_op_index()
+    {
+        m_op_index.clear();
+        m_vd_table.clear();
+    }
+    void add_vd_trace_marker()
+    {
+        assert(m_vd_table.size() == m_op_index.size());
+
+        if(!m_op_index.empty())
+        {
+            qklee_add_drive_trace_marker(m_op_index); // add marker to vd trace
+        }
+        runtime_env->add_vd_tables(m_vd_table); // add marker to "normal" execution trace
+    }
+};
+
+extern const uint64_t crete_vd_trace_accessor[];
+
+VirtualDeviceTraceMarker::VirtualDeviceTraceMarker()
+{
+    for(int i = 0; crete_vd_trace_accessor[i] != 0; ++i)
+    {
+        CRETE_DBG_VDT(
+        fprintf(stderr, "[CRETE VD] accessors[%d] = %p\n",
+                i, (void *)crete_vd_trace_accessor[i]);
+        );
+
+        m_accessors.insert(crete_vd_trace_accessor[i]);
+    }
+}
+
+static VirtualDeviceTraceMarker vd_trace_marker;
+
 RuntimeEnv::RuntimeEnv()
 : m_streamed(false), m_pending_stream(false),
   m_streamed_tb_count(0), m_streamed_index(0),
@@ -447,6 +520,7 @@ void RuntimeEnv::writeRtEnvToFile()
 #if defined(CRETE_DBG_MEM_MONI)
         debug_writeMemoSyncTables();
 #endif
+        writeVDTables();
 
         // need-not-streamed
         writeConcolics();
@@ -1669,6 +1743,29 @@ void RuntimeEnv::handleCreteVoidTargetPid()
     crete_analyzer_void_target_pid(KERNEL_CODE_START_ADDR);
 }
 
+void RuntimeEnv::add_vd_tables(const creteVDTable_ty &table)
+{
+    m_vd_tables.push_back(table);
+}
+
+void RuntimeEnv::writeVDTables()
+{
+    stringstream ss;
+    ss << "dump_vd_tables.bin";
+    ofstream o_sm(getOutputFilename(ss.str()).c_str(), ios_base::binary);
+
+    assert(o_sm.good() && "Create file failed: dump_sync_cpu_states.bin\n");
+
+    try {
+        boost::archive::binary_oarchive oa(o_sm);
+        oa << m_vd_tables;
+    }
+    catch(std::exception &e){
+        cerr << e.what() << endl;
+    }
+}
+
+
 CreteFlags::CreteFlags()
 : m_cpuState(NULL), m_tb(NULL),
   m_target_pid(0), m_capture_started(false),
@@ -1822,6 +1919,8 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
     {
         runtime_env->clearCurrentMemoSyncTable();
         runtime_env->setCPUStatePreInterest((void *)env);
+
+        vd_trace_marker.clear_op_index();
 
         ++rt_dump_tb_count;
     } else {
@@ -2031,6 +2130,9 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
 
 	        // 7. guest_data_post_exec
 	        runtime_env->add_new_tb_pc(tb.pc);
+
+	        // 8. vd trace
+	        vd_trace_marker.add_vd_trace_marker();
 	    }
 
 	    CRETE_DBG_GEN(
@@ -2278,6 +2380,11 @@ void dump_memo_sync_table_entry(struct RuntimeEnv *rt, uint64_t addr, uint32_t s
     rt->addCurrentMemoSyncTableEntry(addr, size, value);
 }
 
+void crete_add_vd_trace_marker_op_index(uint64_t vaddr, uint64_t physaddr,
+        uint32_t size, uint64_t value, int is_write, uint64_t accessor)
+{
+    vd_trace_marker.add_op_index(vaddr, physaddr, size, value, is_write, accessor);
+}
 
 void crete_set_capture_enabled(struct CreteFlags *cf, int capture_enabled)
 {

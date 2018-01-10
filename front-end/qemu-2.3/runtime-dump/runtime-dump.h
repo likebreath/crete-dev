@@ -57,6 +57,9 @@ int  crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb,
 void dump_memo_sync_table_entry(struct RuntimeEnv *rt, uint64_t addr,
 		uint32_t size, uint64_t value);
 
+void crete_add_vd_trace_marker_op_index(uint64_t vaddr, uint64_t physaddr,
+        uint32_t size, uint64_t value, int is_write, uint64_t accessor);
+
 void crete_handle_raise_interrupt(void *env, int intno,
         int is_int, int error_code, int next_eip_addend);
 void crete_handle_do_interrupt_all(void *qemuCPUState, int intno,
@@ -206,6 +209,9 @@ typedef pair<QemuInterruptInfo, bool> interruptState_ty;
 //<name, concolic_memo>
 typedef map<string, CreteMemoInfo> creteConcolics_ty;
 
+//<vaddr, paddr>
+typedef vector<pair<uint64_t, uint64_t> > creteVDTable_ty;
+typedef vector<creteVDTable_ty> creteVDTables_ty;
 
 class RuntimeEnv
 {
@@ -277,6 +283,9 @@ private:
     // For constructing off-line execution graph/tree
     // (contains extra one non-symbolic-tb after each symbolic-tb)
     vector<uint64_t> m_tbGraphExecSequ;
+
+    //virtual device trace
+    creteVDTables_ty m_vd_tables;
 
     // For debugging
     vector<uint64_t> m_tbExecSequPC;
@@ -362,6 +371,9 @@ public:
     // Offline execution graph
     void addTBGraphExecSequ(uint64_t tb_pc);
 
+    // VD trace
+    void add_vd_tables(const creteVDTable_ty &table);
+
     // for debugging
     void addQemuInterruptState(QemuInterruptInfo interrup_info);
     void addEmptyQemuInterruptState();
@@ -417,6 +429,8 @@ private:
 
     // Guest data post execution
     void writeGuestDataPostExec();
+
+    void writeVDTables();
 };
 
 class CreteFlags{

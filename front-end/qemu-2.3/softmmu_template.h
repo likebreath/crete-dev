@@ -164,6 +164,14 @@ static inline DATA_TYPE glue(io_read, SUFFIX)(CPUArchState *env,
 
     cpu->mem_io_vaddr = addr;
     io_mem_read(mr, physaddr, &val, 1 << SHIFT);
+
+#if defined(CRETE_ENABLE_MEMORY_MONITOR)
+    if(flag_rt_dump_enable) {
+        crete_add_vd_trace_marker_op_index(addr, physaddr,
+                DATA_SIZE, val, 0, (uint64_t)mr->ops->read);
+    }
+#endif // #if defined(CRETE_ENABLE_MEMORY_MONITOR)
+
     return val;
 }
 #endif
@@ -497,6 +505,13 @@ static inline void glue(io_write, SUFFIX)(CPUArchState *env,
     cpu->mem_io_vaddr = addr;
     cpu->mem_io_pc = retaddr;
     io_mem_write(mr, physaddr, val, 1 << SHIFT);
+
+#if defined(CRETE_ENABLE_MEMORY_MONITOR)
+    if(flag_rt_dump_enable) {
+        crete_add_vd_trace_marker_op_index(addr, physaddr,
+                DATA_SIZE, val, 1, (uint64_t)mr->ops->write);
+    }
+#endif // #if defined(CRETE_ENABLE_MEMORY_MONITOR)
 }
 
 void helper_le_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,

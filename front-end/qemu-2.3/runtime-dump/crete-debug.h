@@ -22,6 +22,8 @@ extern "C" {
 //#define CRETE_DEBUG_TRACE_KERNEL // Debug trace into kernel code
 //#define CRETE_DEBUG_INTERRUPT// Debug interrupt
 
+//#define CRETE_DEBUG_VD_TRACE
+
 #ifdef CRETE_BUILD_MODE_DEBUG
 #define CRETE_BDMD_DBG(x) do { x } while(0)
 #else
@@ -50,6 +52,12 @@ extern "C" {
 #define CRETE_DBG_INT(x) do { x } while(0)
 #else
 #define CRETE_DBG_INT(x) do { } while(0)
+#endif
+
+#ifdef CRETE_DEBUG_VD_TRACE
+#define CRETE_DBG_VDT(x) do { x } while(0)
+#else
+#define CRETE_DBG_VDT(x) do { } while(0)
 #endif
 
 #define CRETE_DBG_REG cc_src

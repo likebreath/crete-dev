@@ -37,6 +37,10 @@
 
 #include "e1000_regs.h"
 
+#if defined(CRETE_CONFIG) || 1
+#include "runtime-dump/crete-debug.h"
+#endif
+
 #define E1000_DEBUG
 
 #ifdef E1000_DEBUG
@@ -1246,6 +1250,11 @@ static void
 e1000_mmio_write(void *opaque, hwaddr addr, uint64_t val,
                  unsigned size)
 {
+    CRETE_DBG_VDT(
+    fprintf(stderr, "[CRETE_DBG_VDT] e1000_mmio_write(): hwaddr = %p, val = %lu, size = %u\n",
+            (void *)addr, val, size);
+    );
+
     E1000State *s = opaque;
     unsigned int index = (addr & 0x1ffff) >> 2;
 
@@ -1262,6 +1271,10 @@ e1000_mmio_write(void *opaque, hwaddr addr, uint64_t val,
 static uint64_t
 e1000_mmio_read(void *opaque, hwaddr addr, unsigned size)
 {
+    CRETE_DBG_VDT(
+    fprintf(stderr, "[CRETE_DBG_VDT] e1000_mmio_read()\n");
+    );
+
     E1000State *s = opaque;
     unsigned int index = (addr & 0x1ffff) >> 2;
 
@@ -1691,3 +1704,14 @@ static void e1000_register_types(void)
 }
 
 type_init(e1000_register_types)
+
+#if defined(CRETE_COFNIG) || 1
+const uint64_t crete_vd_trace_accessor[] = {
+        (uint64_t)e1000_mmio_write,
+        (uint64_t)e1000_mmio_read,
+//        (uint64_t)e1000_receive,
+//        (uint64_t)e1000_set_link_status,
+//        (uint64_t)e1000_can_receive,
+        0
+};
+#endif
