@@ -389,6 +389,9 @@ void x86_llvm_translator()
         }
     }
 
+    //
+    tcg_llvm_ctx->generate_llvm_DeviceSyncTables("dump_vd_tables.bin");
+
     //4. generate main function
     tcg_llvm_ctx->generate_crete_main();
 

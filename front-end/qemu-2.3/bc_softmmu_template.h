@@ -94,6 +94,7 @@
 
 void crete_todo_op_helper(); /* dummy declaration to indicate the todo works*/
 uint64_t crete_get_dynamic_addr(uint64_t static_addr);
+uint64_t crete_try_device_memory_access(uint64_t addr, int size, int *is_device_access, int is_write);
 
 #ifndef SOFTMMU_CODE_ACCESS
 static inline DATA_TYPE glue(io_read, SUFFIX)(CPUArchState *env,
@@ -113,6 +114,12 @@ WORD_TYPE helper_le_ld_name(CPUArchState *env, target_ulong addr, int mmu_idx,
                             uintptr_t retaddr)
 {
     DATA_TYPE res;
+
+    int is_device_access;
+    res = (DATA_TYPE)crete_try_device_memory_access(addr, DATA_SIZE, &is_device_access, 0);
+    if(is_device_access)
+        return res;
+
     uint64_t dynamic_addr = crete_get_dynamic_addr(addr);
 
 #if DATA_SIZE == 1
@@ -131,6 +138,12 @@ WORD_TYPE helper_be_ld_name(CPUArchState *env, target_ulong addr, int mmu_idx,
                             uintptr_t retaddr)
 {
     DATA_TYPE res;
+
+    int is_device_access;
+    res = (DATA_TYPE)crete_try_device_memory_access(addr, DATA_SIZE, &is_device_access, 0);
+    if(is_device_access)
+        return res;
+
     // TODO: xxx BE (should not need to reverse the address,
     //               as long as it stay consistent wit memory monitoring)
     uint64_t dynamic_addr = crete_get_dynamic_addr(addr);
@@ -178,6 +191,11 @@ static inline void glue(io_write, SUFFIX)(CPUArchState *env,
 void helper_le_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
                        int mmu_idx, uintptr_t retaddr)
 {
+    int is_device_access;
+    crete_try_device_memory_access(addr, DATA_SIZE, &is_device_access, 1);
+    if(is_device_access)
+        return;
+
     uint64_t dynamic_addr = crete_get_dynamic_addr(addr);
 #if DATA_SIZE == 1
     glue(glue(st, SUFFIX), _p)((uint8_t *)dynamic_addr, val);
@@ -190,6 +208,11 @@ void helper_le_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
 void helper_be_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
                        int mmu_idx, uintptr_t retaddr)
 {
+    int is_device_access;
+    crete_try_device_memory_access(addr, DATA_SIZE, &is_device_access, 1);
+    if(is_device_access)
+        return;
+
     // TODO: xxx BE (should not need to reverse the address,
     //               as long as it stay consistent wit memory monitoring)
     uint64_t dynamic_addr = crete_get_dynamic_addr(addr);

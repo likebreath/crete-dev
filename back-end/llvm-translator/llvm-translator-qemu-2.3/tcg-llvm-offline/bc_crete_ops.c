@@ -61,3 +61,53 @@ void crete_sync_memory(const struct MemoryElement *sync_table, uint32_t st_size)
 {
     internal_crete_sync_memory(sync_table, st_size);
 }
+
+struct VirtualDeviceOps
+{
+    uint64_t m_virt_addr;
+    uint64_t m_phys_addr;
+};
+
+// Updated by captured trace, check llvm-translator
+const struct VirtualDeviceOps *vd_ops_table;
+uint32_t vd_ops_table_size;
+
+static int is_vd_op(uint64_t addr)
+{
+    const struct VirtualDeviceOps *current_vd_op;
+    for(uint32_t i = 0; i < vd_ops_table_size; ++i)
+    {
+        current_vd_op = vd_ops_table + i;
+        if(addr == current_vd_op->m_virt_addr)
+        {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+__attribute__((noinline)) static void internal_crete_sync_device(
+        const struct VirtualDeviceOps *sync_table, uint32_t st_size)
+{
+    // Update vd_ops_table
+    vd_ops_table = sync_table;
+    vd_ops_table_size = st_size;
+}
+
+void crete_sync_device(const struct VirtualDeviceOps *sync_table, uint32_t st_size)
+{
+    internal_crete_sync_device(sync_table, st_size);
+}
+
+extern int replay_vd(uint64_t virt_addr, int size, int is_write);
+uint64_t crete_try_device_memory_access(uint64_t addr, int size, int *is_device_access, int is_write)
+{
+    if(!is_vd_op(addr))
+    {
+        *is_device_access = 0;
+        return 0;
+    }
+
+    *is_device_access = 1;
+    return replay_vd(addr, size, is_write);
+}

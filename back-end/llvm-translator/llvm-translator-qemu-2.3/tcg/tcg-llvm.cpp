@@ -128,6 +128,9 @@ typedef pair<bool, vector<CPUStateElement> > cpuStateSyncTable_ty;
 
 typedef vector<pair<uint64_t, uint8_t> > memoSyncTable_ty;
 
+//<vaddr, paddr>
+typedef vector<pair<uint64_t, uint64_t> > creteVDTable_ty;
+
 struct TCGLLVMContextPrivate {
     LLVMContext& m_context;
     IRBuilder<> m_builder;
@@ -271,6 +274,10 @@ public:
     void generate_llvm_MemorySyncTables(const string& input_file_name);
     void generate_llvm_MemorySyncTable(const memoSyncTable_ty& memost);
 
+    void generate_llvm_DeviceSyncTables(const string& input_file_name);
+    void generate_llvm_DeviceSyncTable(const creteVDTable_ty& memost);
+
+
 private:
     map<uint64_t, string> m_crete_helper_names;
 
@@ -280,6 +287,8 @@ private:
 
     vector<pair<uint64_t, GlobalVariable *> > m_cpuState_sync_globals;
     vector<pair<uint64_t, GlobalVariable *> > m_memory_sync_globals;
+
+    vector<pair<uint64_t, GlobalVariable *> > m_device_access_globals;
 };
 
 TCGLLVMContextPrivate::TCGLLVMContextPrivate()
@@ -1495,7 +1504,8 @@ void TCGLLVMContextPrivate::crete_add_tbExecSequ(vector<pair<uint64_t, uint64_t>
 void TCGLLVMContextPrivate::generate_crete_main()
 {
     if(m_tbExecSequ.size() != m_cpuState_sync_globals.size() ||
-            m_tbExecSequ.size() != m_memory_sync_globals.size())
+            m_tbExecSequ.size() != m_memory_sync_globals.size() ||
+            m_tbExecSequ.size() != m_device_access_globals.size() )
     {
         BOOST_THROW_EXCEPTION(std::runtime_error("[Crete Error] m_tbExecSequ.size() != m_cpuState_sync_globals.size()/m_memory_sync_globals.size()"));
     }
@@ -1687,6 +1697,31 @@ void TCGLLVMContextPrivate::generate_crete_tb_prologue(uint64_t tb_count, uint64
         m_builder.CreateCall(func_crete_sync_memory, crete_sync_memory_argValues);
     }
 
+    // 2. call void crete_sync_memory(const struct MemoryElement *sync_table, uint32_t st_size)
+    if(m_device_access_globals[tb_count].first != 0)
+    {
+        uint32_t st_size = m_device_access_globals[tb_count].first;
+        GlobalVariable *sync_table = m_device_access_globals[tb_count].second;
+
+        Function* func_crete_sync_device = m_module->getFunction("crete_sync_device");
+        if(!func_crete_sync_device)
+        {
+            BOOST_THROW_EXCEPTION(std::runtime_error("[Crete Error] crete_sync_memory() is not defined.\n"));
+        }
+
+        // 2.1 const struct MemoryElement *sync_table:
+        //         (getelementptr inbounds (MemoryElement, i32 0, i32 0))
+        Constant* const_ptr_sync_table = ConstantExpr::getGetElementPtr(sync_table,
+                vector<Constant *>(2, ConstantInt::get(m_module->getContext(), APInt(32, 0))));
+        // 2.2 uint32_t st_size
+        ConstantInt* const_int32_st_size = ConstantInt::get(m_module->getContext(), APInt(32, st_size));
+
+        std::vector<Value*> crete_sync_memory_argValues;
+        crete_sync_memory_argValues.push_back(const_ptr_sync_table);
+        crete_sync_memory_argValues.push_back(const_int32_st_size);
+        m_builder.CreateCall(func_crete_sync_device, crete_sync_memory_argValues);
+    }
+
     {
         // 2. call void @crete_qemu_tb_prologue(i64 tb_count, i64 tb_pc)
         Function* crete_qemu_tb_prologue = m_module->getFunction("crete_qemu_tb_prologue");
@@ -1865,6 +1900,76 @@ void TCGLLVMContextPrivate::generate_llvm_MemorySyncTable(const memoSyncTable_ty
 
     m_memory_sync_globals.push_back(make_pair(syncTable_size, gvar_array_cpuStateSyncTable));
 }
+
+void TCGLLVMContextPrivate::generate_llvm_DeviceSyncTables(const string& input_file_name)
+{
+    ifstream i_sm(input_file_name.c_str(), ios_base::binary);
+    if(!i_sm.good()) {
+        BOOST_THROW_EXCEPTION(std::runtime_error("[Crete Error] can't find file: " + input_file_name));
+    }
+
+    // 1. virtual device access sync table:
+    vector<creteVDTable_ty> vdSyncTable;
+    boost::archive::binary_iarchive ia(i_sm);
+    ia >> vdSyncTable;;
+
+    for(vector<creteVDTable_ty>::const_iterator it = vdSyncTable.begin();
+            it != vdSyncTable.end(); ++it) {
+        generate_llvm_DeviceSyncTable(*it);
+    }
+}
+
+void TCGLLVMContextPrivate::generate_llvm_DeviceSyncTable(const creteVDTable_ty& vd_table)
+{
+    if(vd_table.empty())
+    {
+        m_device_access_globals.push_back(make_pair(0, (GlobalVariable*)0));
+        return;
+    }
+
+    StructType *StructTy_struct_VDOps= m_module->getTypeByName("struct.VirtualDeviceOps");
+    if(!StructTy_struct_VDOps)
+    {
+        BOOST_THROW_EXCEPTION(std::runtime_error( "struct.VirtualDeviceOps is not defined.\n"));
+    }
+
+    uint64_t syncTable_size = vd_table.size();
+    std::vector<Constant*> const_array_elems; // construct value for syncTable in llvm
+    const_array_elems.reserve(syncTable_size);
+
+    for(creteVDTable_ty::const_iterator it = vd_table.begin();
+            it != vd_table.end(); ++it) {
+        uint64_t virt_addr = it->first;
+        uint64_t phys_addr = it->second;
+
+        // 1. uint8_t m_virt_addr
+        ConstantInt* const_int64_virt_addr = ConstantInt::get(m_module->getContext(), APInt(64, virt_addr));
+        // 2. uint64_t m_phys_addr
+        ConstantInt* const_int64_phys_addr = ConstantInt::get(m_module->getContext(), APInt(64, phys_addr));
+
+        std::vector<Constant*> const_VDOps_fields;
+        const_VDOps_fields.push_back(const_int64_virt_addr);
+        const_VDOps_fields.push_back(const_int64_phys_addr);
+
+        Constant* const_VDops = ConstantStruct::get(StructTy_struct_VDOps, const_VDOps_fields);
+
+        const_array_elems.push_back(const_VDops);
+    }
+
+    assert(const_array_elems.size() == syncTable_size);
+
+    // Construct type for syncTable in llvm as "MemoSyncElement[syncTable_size]"
+    ArrayType* ArrayTy_syncTable = ArrayType::get(StructTy_struct_VDOps, syncTable_size);
+    // Construct instance of syncTable as global variable in llvm
+    GlobalVariable* gvar_array_cpuStateSyncTable = new GlobalVariable(*m_module, /*Module=*/
+                                                                      ArrayTy_syncTable, /*Type=*/
+                                                                      false, /*isConstant=*/
+                                                                      GlobalValue::ExternalLinkage, /*Linkage=*/
+                                                                      ConstantArray::get(ArrayTy_syncTable, const_array_elems) /*Initializer=*/);
+
+    m_device_access_globals.push_back(make_pair(syncTable_size, gvar_array_cpuStateSyncTable));
+}
+
 /***********************************/
 /* External interface for C++ code */
 
@@ -1993,6 +2098,11 @@ void TCGLLVMContext::generate_llvm_cpuStateSyncTables(const string& input_file_n
 void TCGLLVMContext::generate_llvm_MemorySyncTables(const string& input_file_name)
 {
     m_private->generate_llvm_MemorySyncTables(input_file_name);
+}
+
+void TCGLLVMContext::generate_llvm_DeviceSyncTables(const string& input_file_name)
+{
+    m_private->generate_llvm_DeviceSyncTables(input_file_name);
 }
 #endif // TCG_LLVM_OFFLINE
 /*****************************/
