@@ -37,12 +37,6 @@
 #include <string>
 #include <stdlib.h>
 
-extern "C" {
-#include "tcg.h"
-}
-
-#include "tcg-llvm.h"
-
 #if defined(USE_LLVM_3_4)
 // LLVM-3.4
 #include <llvm/IR/LLVMContext.h>
@@ -88,6 +82,12 @@ extern "C" {
 #include <sstream>
 
 //#undef NDEBUG
+
+extern "C" {
+#include "tcg.h"
+}
+
+#include "tcg-llvm.h"
 
 extern "C" {
     TCGLLVMContext* tcg_llvm_ctx = 0;

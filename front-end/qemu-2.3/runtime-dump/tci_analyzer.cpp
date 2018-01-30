@@ -1,11 +1,5 @@
 #include "tci_analyzer.h"
 
-extern "C" {
-#include "config.h"
-#include "cpu.h"
-#include "tcg-target.h"
-}
-
 #include <boost/array.hpp>
 #include <boost/unordered_set.hpp>
 #include <boost/unordered_map.hpp>
@@ -15,6 +9,12 @@ extern "C" {
 #include <sstream>
 
 #include "crete-debug.h"
+
+extern "C" {
+#include "config.h"
+#include "cpu.h"
+#include "tcg-target.h"
+}
 
 static const uint64_t CRETE_TCG_ENV_SIZE = sizeof(CPUArchState);
 

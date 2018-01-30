@@ -17,8 +17,9 @@ ExternalProject_Add(
         ./configure
         --enable-tcg-interpreter
         --target-list=i386-softmmu,x86_64-softmmu
-        "--extra-cflags=-I${CMAKE_SOURCE_DIR}/lib/include -I${CMAKE_BINARY_DIR}/lib/boost/boost-prefix/src/boost_1_59_0"
+        "--extra-cflags=-I${CMAKE_SOURCE_DIR}/lib/include -I${CMAKE_BINARY_DIR}/lib/boost/boost-prefix/src/boost_1_59_0 -D_GLIBCXX_USE_CXX11_ABI=0"
         "--extra-ldflags=-L${CMAKE_BINARY_DIR}/bin -L${CMAKE_BINARY_DIR}/bin/boost"
+        "--extra-cxxflags=-D_GLIBCXX_USE_CXX11_ABI=0"
 
 	BUILD_COMMAND make -j7
 

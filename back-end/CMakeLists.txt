@@ -7,12 +7,12 @@ add_subdirectory(llvm-translator)
 
 include(ExternalProject)
 
-set(KLEE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${CMAKE_SOURCE_DIR}/lib/include/ -I${CMAKE_BINARY_DIR}/lib/boost/boost-prefix/src/boost_1_59_0 -DCRETE_CONFIG=1")
+set(KLEE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${CMAKE_SOURCE_DIR}/lib/include/ -I${CMAKE_BINARY_DIR}/lib/boost/boost-prefix/src/boost_1_59_0 -DCRETE_CONFIG=1 -D_GLIBCXX_USE_CXX11_ABI=0")
 set(KLEE_C_FLAGS "${CMAKE_C_FLAGS} -I${CMAKE_SOURCE_DIR}/lib/include/ -I${CMAKE_BINARY_DIR}/lib/boost/boost-prefix/src/boost_1_59_0 -DCRETE_CONFIG=1")
 # -I/usr/include/glib-2.0/ -I/usr/lib/x86_64-linux-gnu/glib-2.0/include/
 set(KLEE_LD_FLAGS "-L${CMAKE_BINARY_DIR}/bin -L${CMAKE_BINARY_DIR}/bin/boost")
 
-execute_process(COMMAND which llvm-config-3.4
+execute_process(COMMAND which llvm-config
   OUTPUT_VARIABLE LLVMCONFIG_PATH
   OUTPUT_STRIP_TRAILING_WHITESPACE)
 
@@ -27,8 +27,8 @@ ExternalProject_Add(
 
 	CMAKE_ARGS
         -DLLVM_CONFIG_BINARY=${LLVMCONFIG_PATH}
-        -DCMAKE_CXX_COMPILER=clang++-3.4
-        -DCMAKE_C_COMPILER=clang-3.4
+        -DCMAKE_CXX_COMPILER=clang++
+        -DCMAKE_C_COMPILER=clang
         -DCMAKE_CXX_FLAGS=${KLEE_CXX_FLAGS}
         -DCMAKE_C_FLAGS=${KLEE_C_FLAGS}
         -DCMAKE_EXE_LINKER_FLAGS=${KLEE_LD_FLAGS}

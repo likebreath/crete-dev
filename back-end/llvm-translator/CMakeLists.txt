@@ -4,9 +4,9 @@ project(llvm-translator)
 
 include(ExternalProject)
 
-# Dependency: llvm-3.4 is installed
+# Dependency: llvm-3.4 or crete-llvm is installed
 
-execute_process(COMMAND llvm-config-3.4 --prefix
+execute_process(COMMAND llvm-config --prefix
   OUTPUT_VARIABLE LLVM_PATH
   OUTPUT_STRIP_TRAILING_WHITESPACE)
 
@@ -26,10 +26,11 @@ ExternalProject_Add(
         --enable-tcg-interpreter
         --disable-zlib-test
         --with-llvm=${LLVM_PATH}
-        --cxx=clang++-3.4
+        --cc=clang
+        --cxx=clang++
         "--extra-ldflags=-L${CMAKE_BINARY_DIR}/bin -L${CMAKE_BINARY_DIR}/bin/boost"
         "--extra-cflags=-mno-sse3 -g -I${CMAKE_SOURCE_DIR}/lib/include -I${CMAKE_BINARY_DIR}/lib/boost/boost-prefix/src/boost_1_59_0 -DTCG_LLVM_OFFLINE"
-        "--extra-cxxflags=-mno-sse3 -O2 -DTCG_LLVM_OFFLINE -DUSE_LLVM_3_4"
+        "--extra-cxxflags=-mno-sse3 -O2 -DTCG_LLVM_OFFLINE -DUSE_LLVM_3_4 -D_GLIBCXX_USE_CXX11_ABI=0"
 
         BUILD_COMMAND make -j7
 
