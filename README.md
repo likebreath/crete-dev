@@ -43,38 +43,42 @@ sudo apt-get update
 sudo apt-get install build-essential libcap-dev flex bison cmake libelf-dev git libtool libpixman-1-dev minisat zlib1g-dev libglib2.0-dev
 ```
 
-LLVM 3.4 is also required to build CRETE, and the LLVM packages provided by LLVM
+~~LLVM 3.4 is also required to build CRETE, and the LLVM packages provided by LLVM
 itself is recommended. Please check [LLVM Package
 Repository](http://apt.llvm.org/) for details. For the recent Ubuntu (≥ 12.04
 and ≤ 15.10, e.g. 14.04 LTS) or Debian, please use the following instructions to
-install LLVM 3.4:
-```bash
-echo "deb http://llvm.org/apt/trusty/ llvm-toolchain-trusty-3.4 main" | sudo tee -a /etc/apt/sources.list
-echo "deb-src http://llvm.org/apt/trusty/ llvm-toolchain-trusty-3.4 main" | sudo tee -a /etc/apt/sources.list
-wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key|sudo apt-key add -
-sudo apt-get update
-sudo apt-get install clang-3.4 llvm-3.4 llvm-3.4-dev llvm-3.4-tools
-```
+install LLVM 3.4:~~
+
+>### Special instructions for building CRETE on Ubuntu 16.04
+> [LLVM 3.4](http://releases.llvm.org/3.4/docs/ReleaseNotes.html) needs to be compiled and
+> installed manually on Ubuntu 16.04, as LLVM doesn't provide pre-compiled
+> packages for this version of LLVM with Ubuntu 16.04. When building LLVM 3.4 from source,
+> [RTTI](https://llvm.org/docs/Packaging.html#c-features) requires to be
+> enabled, and only old libstdc++ ABI is supported ([dual
+> ABI](https://gcc.gnu.org/onlinedocs/libstdc%2B%2B/manual/using_dual_abi.html)
+> introduced since GCC 5.1). A pre-compiled llvm-3.4 package for
+> building CRETE can be downloaded [here](http://svl13.cs.pdx.edu:/crete-llvm_3.4-1_amd64.deb). It can be
+> installed and removed by:
+>```
+>sudo dpkg -i crete-llvm_3.4-1_amd64.deb
+>sudo apt-get remove crete-llvm
+>```
 
 ### 2.2 Building
 >#### Warning
 >
 > CRETE uses Boost 1.59.0. If any other version of Boost is installed on the system, there may be conflicts. It is recommended that you remove any conflicting Boost versions.
->
->#### Note
-> CRETE requires a C++11 compatible compiler.
-> We recommend clang++-3.4 or g++-4.9 or higher versions of these compilers.
 
 Grab a copy of the source tree:
 ```bash
-git clone --recursive https://github.com/SVL-PSU/crete-dev.git crete
+git clone -b ubuntu_16.04 --recursive https://github.com/likebreath/crete-dev.git
 ```
 
 From outside of CRETE's top-level directory:
 ```bash
-mkdir crete-build
-cd crete-build
-CXX=clang++-3.4 cmake ../crete
+mkdir build
+cd build
+cmake ../crete-dev
 make # use -j to speedup
 ```
 
