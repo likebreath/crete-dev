@@ -66,6 +66,15 @@ uint64_t nb_captured_llvm_tb = 0;
 
 static const uint32_t CRETE_TRACING_WINDOW_SIZE = 10000;
 
+// e1000
+extern "C" {
+extern const uint64_t crete_vd_trace_accessor[];
+extern void *crete_e1000_instance;
+
+uint64_t crete_get_e1000State_size(void);
+bool crete_get_e1000State_offset(const char *field, uint64_t *offset, uint64_t *size);
+}
+static uint64_t e1000State_size = crete_get_e1000State_size();
 /***********************************/
 /* External interface for C++ code */
 
@@ -123,8 +132,6 @@ public:
     }
 };
 
-extern const uint64_t crete_vd_trace_accessor[];
-
 VirtualDeviceTraceMarker::VirtualDeviceTraceMarker()
 {
     for(int i = 0; crete_vd_trace_accessor[i] != 0; ++i)
@@ -149,14 +156,18 @@ RuntimeEnv::RuntimeEnv()
 {
     m_tlo_ctx_cpuState = new uint8_t [sizeof(CPUArchState)];
 
-    m_cpuState_post_insterest.first = false;
-    m_cpuState_post_insterest.second = new uint8_t [sizeof(CPUArchState)];
+    m_flag_HWState_post_interest = false;
+    m_flag_HWState_pre_interest= false;
 
-    m_cpuState_pre_interest.first = false;
-    m_cpuState_pre_interest.second = new uint8_t [sizeof(CPUArchState)];
+    m_cpuState_post_insterest = new uint8_t [sizeof(CPUArchState)];
+    m_cpuState_pre_interest = new uint8_t [sizeof(CPUArchState)];
+
+    m_e1000State_post_insterest = new uint8_t [e1000State_size];
+    m_e1000State_pre_interest = new uint8_t [e1000State_size];
 
     m_tcg_llvm_offline_ctx.dump_cpuState_size(sizeof(CPUArchState));
     m_initial_CpuState.reserve(sizeof(CPUArchState));
+    m_initial_e1000State.reserve(e1000State_size);
 
     CRETE_DBG_INT(m_dbg_cpuState_post_interest = new uint8_t [sizeof(CPUArchState)];);
 }
@@ -166,11 +177,17 @@ RuntimeEnv::~RuntimeEnv()
     assert(m_tlo_ctx_cpuState);
     delete [] (uint8_t *)m_tlo_ctx_cpuState;
 
-    assert(m_cpuState_post_insterest.second);
-    delete [] (uint8_t *)m_cpuState_post_insterest.second;
+    assert(m_cpuState_post_insterest);
+    delete [] (uint8_t *)m_cpuState_post_insterest;
 
-    assert(m_cpuState_pre_interest.second);
-    delete [] (uint8_t *)m_cpuState_pre_interest.second;
+    assert(m_cpuState_pre_interest);
+    delete [] (uint8_t *)m_cpuState_pre_interest;
+
+    assert(m_e1000State_post_insterest);
+    delete [] (uint8_t *)m_e1000State_post_insterest;
+
+    assert(m_e1000State_pre_interest);
+    delete [] (uint8_t *)m_e1000State_pre_interest;
 
     CRETE_DBG_INT(
     assert(m_dbg_cpuState_post_interest);
@@ -204,8 +221,8 @@ void RuntimeEnv::dump_tloCtx(void *cpuState, TranslationBlock *tb, uint64_t cret
 
     // Use pre_interest tb for translation
     // Note: must use input cpuState pointer required by ENV_GET_CPU()
-    assert(m_cpuState_pre_interest.first);
-    memcpy(cpuState, m_cpuState_pre_interest.second, sizeof(CPUArchState));
+    assert(m_flag_HWState_pre_interest);
+    memcpy(cpuState, m_cpuState_pre_interest, sizeof(CPUArchState));
 
     tcg_func_start(s);
 	gen_intermediate_code_crete((CPUArchState *)cpuState, tb, crete_interrupted_pc);
@@ -237,36 +254,58 @@ void RuntimeEnv::dump_tloCtx(void *cpuState, TranslationBlock *tb, uint64_t cret
     dump_IR(s, tb);
 }
 
-void RuntimeEnv::addInitialCpuState()
+void RuntimeEnv::addInitialHardwareState()
 {
-    assert(m_initial_CpuState.empty());
-    assert(m_cpuState_pre_interest.first);
+    assert(m_flag_HWState_pre_interest);
 
+    // CPUState
+    assert(m_initial_CpuState.empty());
     m_initial_CpuState.resize(sizeof(CPUArchState));
-    memcpy(m_initial_CpuState.data(), m_cpuState_pre_interest.second, sizeof(CPUArchState));
+    memcpy(m_initial_CpuState.data(), m_cpuState_pre_interest, sizeof(CPUArchState));
+
+    // E1000State
+    assert(m_initial_e1000State.empty());
+    m_initial_e1000State.resize(e1000State_size);
+    memcpy(m_initial_e1000State.data(), m_e1000State_pre_interest, e1000State_size);
 }
 
 static vector<CPUStateElement> x86_cpuState_compuate_side_effect(const CPUArchState *reference,
         const CPUArchState *target);
-
-void RuntimeEnv::addcpuStateSyncTable()
+static vector<E1000StateElement> compuate_side_effect_e1000State(const uint8_t *reference,
+        const uint8_t *target);
+void RuntimeEnv::addHardwareStateSyncTable()
 {
-    assert(m_cpuState_post_insterest.first == true);
-    assert(m_cpuState_pre_interest.first == true);
+    assert(m_flag_HWState_post_interest == true);
+    assert(m_flag_HWState_pre_interest== true);
 
-    const CPUArchState *post_interest = (const CPUArchState *) m_cpuState_post_insterest.second;
-    const CPUArchState *pre_insterest = (const CPUArchState *) m_cpuState_pre_interest.second;
+    // CPUState
+    {
+        const CPUArchState *post_interest = (const CPUArchState *) m_cpuState_post_insterest;
+        const CPUArchState *pre_insterest = (const CPUArchState *) m_cpuState_pre_interest;
 
-    m_cpuStateSyncTables.push_back(make_pair(true,
-            x86_cpuState_compuate_side_effect(post_interest, pre_insterest)));
+        m_cpuStateSyncTables.push_back(make_pair(true,
+                x86_cpuState_compuate_side_effect(post_interest, pre_insterest)));
+    }
 
-    // Invalid m_cpuState_post_insterest, after CPUState side-effect is computed
-    m_cpuState_post_insterest.first = false;
+    // E1000 State
+    {
+        const uint8_t *post_interest = (const uint8_t *) m_e1000State_post_insterest;
+        const uint8_t *pre_interest = (const uint8_t *) m_e1000State_pre_interest;
+
+        m_e1000StateSyncTables.push_back(make_pair(true,
+                compuate_side_effect_e1000State(post_interest, pre_interest)));
+    }
+
+
+    // Invalid m_HWState_post_insterest, after HWState side-effect is computed
+    m_flag_HWState_post_interest = false;
+
 }
 
-void RuntimeEnv::addEmptyCPUStateSyncTable()
+void RuntimeEnv::addEmptyHardwareStateSyncTable()
 {
     m_cpuStateSyncTables.push_back(make_pair(false, vector<CPUStateElement>()));
+    m_e1000StateSyncTables.push_back(make_pair(false, vector<E1000StateElement>()));
 }
 
 vector<CPUStateElement> x86_cpuState_dump(const CPUArchState *target);
@@ -505,7 +544,7 @@ void RuntimeEnv::writeRtEnvToFile()
         if(!m_streamed)
         {
             initOutputDirectory("");
-            writeInitialCpuState();
+            writeInitialHardwareState();
             writeDebugCpuStateOffsets();
         }
 
@@ -541,7 +580,7 @@ void RuntimeEnv::stream_writeRtEnvToFile(uint64_t tb_count) {
     if(!m_streamed)
     {
         initOutputDirectory("");
-        writeInitialCpuState();
+        writeInitialHardwareState();
         writeDebugCpuStateOffsets();
     }
 
@@ -689,6 +728,9 @@ void RuntimeEnv::verifyDumpData() const
     assert(m_cpuStateSyncTables.size() == (rt_dump_tb_count - m_streamed_tb_count) &&
                "Something wrong in m_cpuStateSyncTables dump, its size should be equal to rt_dump_tb_count all the time.\n");
     assert(m_debug_cpuStateSyncTables.size() == (rt_dump_tb_count - m_streamed_tb_count) &&
+               "Something wrong in m_cpuStateSyncTables dump, its size should be equal to rt_dump_tb_count all the time.\n");
+
+    assert(m_e1000StateSyncTables.size() == (rt_dump_tb_count - m_streamed_tb_count) &&
                "Something wrong in m_cpuStateSyncTables dump, its size should be equal to rt_dump_tb_count all the time.\n");
 
     assert(m_memoSyncTables.size() == (rt_dump_tb_count - m_streamed_tb_count) &&
@@ -933,32 +975,37 @@ void RuntimeEnv::writeConcolics()
     crete::write_serialized(ofs, m_input_tc);
 }
 
-void RuntimeEnv::setCPUStatePostInterest(const void *src)
+void RuntimeEnv::setHardwareStatePostInterest(const void *cpustate, const void *e1000State)
 {
-    assert(src);
-    memcpy(m_cpuState_post_insterest.second, src,
-            sizeof(CPUArchState));
+    assert(cpustate);
+    memcpy(m_cpuState_post_insterest, cpustate, sizeof(CPUArchState));
+
+    assert(e1000State);
+    memcpy(m_e1000State_post_insterest, e1000State, e1000State_size);
 }
 
-void RuntimeEnv::setFlagCPUStatePostInterest()
+void RuntimeEnv::setFlagHardwareStatePostInterest()
 {
-    assert(m_cpuState_post_insterest.first == false &&
-            "m_cpuState_post_insterest should always be invalided in addcpuStateSyncTable().\n");
+    assert(m_flag_HWState_post_interest == false &&
+            "m_flag_HWState_post_interest should always be invalided in addHardwareStateSyncTable().\n");
 
-    m_cpuState_post_insterest.first = true;
+    m_flag_HWState_post_interest = true;
 }
 
-void RuntimeEnv::setCPUStatePreInterest(const void *src)
+void RuntimeEnv::setHardwareStatePreInterest(const void *cpustate, const void *e1000State)
 {
-    assert(src);
-    memcpy(m_cpuState_pre_interest.second, src,
-            sizeof(CPUArchState));
-    m_cpuState_pre_interest.first = true;
+    m_flag_HWState_pre_interest= true;
+
+    assert(cpustate);
+    memcpy(m_cpuState_pre_interest, cpustate, sizeof(CPUArchState));
+
+    assert(e1000State);
+    memcpy(m_e1000State_pre_interest, e1000State, e1000State_size);
 }
 
-void RuntimeEnv::resetCPUStatePreInterest()
+void RuntimeEnv::resetFlagHardwareStatePreInterest()
 {
-    m_cpuState_pre_interest.first = false;
+    m_flag_HWState_pre_interest = false;
 }
 
 void RuntimeEnv::writeMemoSyncTables()
@@ -1268,8 +1315,10 @@ void RuntimeEnv::print_memoSyncTables()
 #endif //#if defined(CRETE_DBG_MEM_MONI)
 
 
-void RuntimeEnv::writeInitialCpuState()
+void RuntimeEnv::writeInitialHardwareState()
 {
+    // CPU State
+    {
     assert(m_initial_CpuState.size() == sizeof(CPUArchState));
 
     ofstream o_sm(getOutputFilename("dump_initial_cpuState.bin").c_str(),
@@ -1279,6 +1328,20 @@ void RuntimeEnv::writeInitialCpuState()
     o_sm.clear();
 
     m_initial_CpuState.clear();
+    }
+
+    // E1000 State
+    {
+    assert(m_initial_e1000State.size() == e1000State_size);
+
+    ofstream o_sm(getOutputFilename("dump_initial_e1000State.bin").c_str(),
+                ios_base::binary);
+    assert(o_sm.good() && "Create file failed: dump_initial_e1000State.bin\n");
+    o_sm.write((const char*)m_initial_e1000State.data(), e1000State_size);
+    o_sm.clear();
+
+    m_initial_e1000State.clear();
+    }
 }
 
 void RuntimeEnv::writeDebugCpuStateOffsets()
@@ -1299,7 +1362,7 @@ void RuntimeEnv::writeDebugCpuStateOffsets()
 }
 
 
-void RuntimeEnv::checkEmptyCPUStateSyncTables()
+void RuntimeEnv::checkEmptyHardwareStateSyncTables()
 {
     uint64_t tb_count = 0;
     for(vector<cpuStateSyncTable_ty>::iterator it = m_cpuStateSyncTables.begin();
@@ -1315,12 +1378,28 @@ void RuntimeEnv::checkEmptyCPUStateSyncTables()
 
         ++tb_count;
     }
+
+    tb_count = 0;
+    for(vector<e1000StateSyncTable_ty>::iterator it = m_e1000StateSyncTables.begin();
+            it != m_e1000StateSyncTables.end(); ++it) {
+        if(it->first && it->second.empty()) {
+            it->first = false;
+
+            CRETE_DBG_GEN(
+            fprintf(stderr, "E1000 State is not changed between tb-%lu, and tb-%lu\n",
+                    tb_count - 1, tb_count);
+            );
+        }
+
+        ++tb_count;
+    }
 }
 
 void RuntimeEnv::writeCPUStateSyncTables()
 {
-    checkEmptyCPUStateSyncTables();
+    checkEmptyHardwareStateSyncTables();
 
+    {
     stringstream ss;
     ss << "dump_sync_cpu_states." << m_streamed_index << ".bin";
     ofstream o_sm(getOutputFilename(ss.str()).c_str(), ios_base::binary);
@@ -1336,6 +1415,25 @@ void RuntimeEnv::writeCPUStateSyncTables()
     }
 
     m_cpuStateSyncTables.clear();
+    }
+
+    {
+    stringstream ss;
+    ss << "dump_sync_e1000_states." << m_streamed_index << ".bin";
+    ofstream o_sm(getOutputFilename(ss.str()).c_str(), ios_base::binary);
+
+    assert(o_sm.good() && "Create file failed: dump_sync_e1000_states.bin\n");
+
+    try {
+        boost::archive::binary_oarchive oa(o_sm);
+        oa << m_e1000StateSyncTables;
+    }
+    catch(std::exception &e){
+        cerr << e.what() << endl;
+    }
+
+    m_e1000StateSyncTables.clear();
+    }
 }
 
 void RuntimeEnv::writeDebugCPUStateSyncTables()
@@ -1918,13 +2016,13 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
     if(tb_pre_interested)
     {
         runtime_env->clearCurrentMemoSyncTable();
-        runtime_env->setCPUStatePreInterest((void *)env);
+        runtime_env->setHardwareStatePreInterest((void *)env, crete_e1000_instance);
 
         vd_trace_marker.clear_op_index();
 
         ++rt_dump_tb_count;
     } else {
-        runtime_env->resetCPUStatePreInterest();
+        runtime_env->resetFlagHardwareStatePreInterest();
     }
 
     // static flags
@@ -2063,7 +2161,7 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
 	        // and CPUStateSyncTable
 	        if(rt_dump_tb_count == 1)
 	        {
-	            runtime_env->addInitialCpuState();
+	            runtime_env->addInitialHardwareState();
 	        }
 
 	        // 1. instruction sequence and its translation context
@@ -2085,20 +2183,20 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
 	        // 2.1 calculate CPUState side-effects for TBs that are "BackToInterestTb"
 	        if(rt_dump_tb_count == 1) {
 	            // add empty table for the first interested tb
-	            runtime_env->addEmptyCPUStateSyncTable();
+	            runtime_env->addEmptyHardwareStateSyncTable();
 	        } else {
 	            if(!static_flag_interested_tb_prev)
 	            {
-	                runtime_env->addcpuStateSyncTable();
+	                runtime_env->addHardwareStateSyncTable();
 	            } else {
-	                runtime_env->addEmptyCPUStateSyncTable();
+	                runtime_env->addEmptyHardwareStateSyncTable();
 	            }
 	        }
 
-	        // 2.2 set the content of m_cpuState_post_insterest.second after each interested TB
-	        //    m_cpuState_post_insterest.second will only be used when the flag
-	        //    m_cpuState_post_insterest.first is set
-	        runtime_env->setCPUStatePostInterest(qemuCpuState);
+	        // 2.2 set the content of m_xxxState_post_insterest after each interested TB
+	        //    m_xxxState_post_insterest will only be used when the flag
+	        //    m_flag_HWState_post_interest is set
+	        runtime_env->setHardwareStatePostInterest(qemuCpuState, crete_e1000_instance);
 
 	        // 2.3 dump the current CPUState for cross checking on klee side
 	        runtime_env->addDebugCpuStateSyncTable(qemuCpuState);
@@ -2143,7 +2241,7 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
 
     // Set runtime_env->m_cpuState_post_insterest
     if(static_flag_interested_tb_prev && !static_flag_interested_tb) {
-        runtime_env->setFlagCPUStatePostInterest();
+        runtime_env->setFlagHardwareStatePostInterest();
     }
     runtime_env->verifyDumpData();
     crete_tci_next_block();
@@ -2877,4 +2975,158 @@ static bool manual_code_selection_post_exec()
     passed = passed && !helper_rdtsc_invoked;
 
     return passed;
+}
+
+// E1000State
+#define __CRETE_CALC_E1000STATE_SIDE_EFFECT(name)                       \
+        valid = crete_get_e1000State_offset(name, &offset, &size);      \
+        assert(valid);                                                  \
+        if(memcmp(reference+offset, target+offset, size) != 0)          \
+        {                                                               \
+            data.clear();                                               \
+                                                                        \
+            for(uint64_t j=0; j < size; ++j) {                          \
+                data.push_back(*(uint8_t *)(((uint8_t *)target)         \
+                        + offset + j));                                 \
+            }                                                           \
+                                                                        \
+            ret.push_back(E1000StateElement(offset, size, name, data)); \
+        }
+
+#define __CRETE_CALC_E1000STATE_SIDE_EFFECT_ARRAY(name, array_size)         \
+        valid = crete_get_e1000State_offset(name, &base_offset, &size);     \
+        for(uint64_t i = 0; i < (array_size); ++i)                          \
+        {                                                                   \
+            offset = base_offset + i*size;                                  \
+            if(memcmp(reference+offset, target+offset, size) != 0)          \
+            {                                                               \
+                data.clear();                                               \
+                                                                            \
+                for(uint64_t j=0; j < size; ++j) {                          \
+                    data.push_back(*(uint8_t *)(((uint8_t *)target)         \
+                            + offset + j));                                 \
+                }                                                           \
+                                                                            \
+                ret.push_back(E1000StateElement(offset, size, name, data)); \
+            }                                                               \
+        }
+
+
+// List of E1000State being ignored
+//  Element:                            Reason
+// +--------------------------------+----------------------------+
+// NICState *nic,                    pointer
+// QEMUTimer *autoneg_timer,         pointer
+// QEMUTimer *mit_timer,             pointer
+
+static vector<E1000StateElement> compuate_side_effect_e1000State(const uint8_t *reference,
+        const uint8_t *target) {
+    vector<E1000StateElement> ret;
+    ret.clear();
+
+    uint64_t base_offset;                                               \
+    uint64_t offset;
+    uint64_t size;
+    vector<uint8_t> data;
+    bool valid;
+
+    // typedef struct E1000State_st {
+
+    // xxx: double check 'parent_obj', as it is a struct and contains pointers
+    //     PCIDevice parent_obj;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("parent_obj");
+    //     NICState *nic;
+//    __CRETE_CALC_E1000STATE_SIDE_EFFECT("nic");
+    //     NICConf conf;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("conf");
+    //     MemoryRegion mmio;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("mmio");
+    //     MemoryRegion io;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("io");
+    //     uint32_t mac_reg[0x8000];
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT_ARRAY("mac_reg", 0x8000)
+    //     uint16_t phy_reg[0x20];
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT_ARRAY("phy_reg", 0x20);
+    //     uint16_t eeprom_data[64];
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT_ARRAY("eeprom_data", 64);
+
+    //     uint32_t rxbuf_size;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("rxbuf_size");
+    //     uint32_t rxbuf_min_shift;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("rxbuf_min_shift");
+
+    //     struct e1000_tx {
+    //         unsigned char header[256];
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT_ARRAY("tx.header", 256);
+    //         unsigned char vlan_header[4];
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT_ARRAY("tx.vlan_header", 4);
+    //         unsigned char vlan[4];
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT_ARRAY("tx.vlan", 4);
+    //         unsigned char data[0x10000];
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT_ARRAY("tx.data", 0x10000);
+    //         uint16_t size;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("tx.size");
+    //         unsigned char sum_needed;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("tx.sum_needed");
+    //         unsigned char vlan_needed;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("tx.vlan_needed");
+    //         uint8_t ipcss;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("tx.ipcss");
+    //         uint8_t ipcso;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("tx.ipcso");
+    //         uint16_t ipcse;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("tx.ipcse");
+    //         uint8_t tucss;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("tx.tucss");
+    //         uint8_t tucso;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("tx.tucso");
+    //         uint16_t tucse;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("tx.tucse");
+    //         uint8_t hdr_len;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("tx.hdr_len");
+    //         uint16_t mss;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("tx.mss");
+    //         uint32_t paylen;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("tx.paylen");
+    //         uint16_t tso_frames;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("tx.tso_frames");
+    //         char tse;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("tx.tse");
+    //         int8_t ip;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("tx.ip");
+    //         int8_t tcp;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("tx.tcp");
+    //         char cptse;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("tx.cptse");
+    //     } tx;
+
+    //     struct {
+    //         uint32_t val_in;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("eecd_state.val_in");
+    //         uint16_t bitnum_in;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("eecd_state.bitnum_in");
+    //         uint16_t bitnum_out;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("eecd_state.bitnum_out");
+    //         uint16_t reading;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("eecd_state.reading");
+    //         uint32_t old_eecd;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("eecd_state.old_eecd");
+    //     } eecd_state;
+
+    //     QEMUTimer *autoneg_timer;
+//    __CRETE_CALC_E1000STATE_SIDE_EFFECT("autoneg_timer");
+    //     QEMUTimer *mit_timer;
+//    __CRETE_CALC_E1000STATE_SIDE_EFFECT("mit_timer");
+    //     bool mit_timer_on;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("mit_timer_on");
+    //     bool mit_irq_level;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("mit_irq_level");
+    //     uint32_t mit_ide;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("mit_ide");
+    //     uint32_t compat_flags;
+    __CRETE_CALC_E1000STATE_SIDE_EFFECT("compat_flags");
+
+    // } E1000State;
+
+    return ret;
 }

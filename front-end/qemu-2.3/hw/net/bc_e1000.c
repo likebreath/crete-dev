@@ -37,15 +37,6 @@
 
 #include "e1000_regs.h"
 
-#if defined(CRETE_CONFIG) || 1
-#include "runtime-dump/crete-debug.h"
-
-void *crete_e1000_instance = NULL;
-
-uint64_t crete_get_e1000State_size(void);
-bool crete_get_e1000State_offset(const char *field, uint64_t *offset, uint64_t *size);
-#endif
-
 #define E1000_DEBUG
 
 #ifdef E1000_DEBUG
@@ -724,7 +715,7 @@ process_tx_desc(E1000State *s, struct e1000_tx_desc *dp)
         stw_be_p(tp->vlan_header + 2,
                       le16_to_cpu(dp->upper.fields.special));
     }
-        
+
     addr = le64_to_cpu(dp->buffer_addr);
     if (tp->tse && tp->cptse) {
         msh = tp->hdr_len + tp->mss;
@@ -1255,14 +1246,6 @@ static void
 e1000_mmio_write(void *opaque, hwaddr addr, uint64_t val,
                  unsigned size)
 {
-    CRETE_DBG_VDT(
-    fprintf(stderr, "[CRETE_DBG_VDT] e1000_mmio_write(): hwaddr = %p, val = %lu, size = %u\n",
-            (void *)addr, val, size);
-    );
-#if defined(CRETE_CONFIG) || 1
-    assert(crete_e1000_instance == opaque);
-#endif
-
     E1000State *s = opaque;
     unsigned int index = (addr & 0x1ffff) >> 2;
 
@@ -1279,14 +1262,6 @@ e1000_mmio_write(void *opaque, hwaddr addr, uint64_t val,
 static uint64_t
 e1000_mmio_read(void *opaque, hwaddr addr, unsigned size)
 {
-    CRETE_DBG_VDT(
-    fprintf(stderr, "[CRETE_DBG_VDT] e1000_mmio_read()\n");
-    );
-
-#if defined(CRETE_CONFIG) || 1
-    assert(crete_e1000_instance == opaque);
-#endif
-
     E1000State *s = opaque;
     unsigned int index = (addr & 0x1ffff) >> 2;
 
@@ -1658,12 +1633,6 @@ static void e1000_instance_init(Object *obj)
     device_add_bootindex_property(obj, &n->conf.bootindex,
                                   "bootindex", "/ethernet-phy@0",
                                   DEVICE(n), NULL);
-#if defined(CRETE_CONFIG) || 1
-    if(!crete_e1000_instance)
-    {
-        crete_e1000_instance = n;
-    }
-#endif
 }
 
 static const TypeInfo e1000_base_info = {
@@ -1722,130 +1691,3 @@ static void e1000_register_types(void)
 }
 
 type_init(e1000_register_types)
-
-#if defined(CRETE_COFNIG) || 1
-const uint64_t crete_vd_trace_accessor[] = {
-        (uint64_t)e1000_mmio_write,
-        (uint64_t)e1000_mmio_read,
-//        (uint64_t)e1000_receive,
-//        (uint64_t)e1000_set_link_status,
-//        (uint64_t)e1000_can_receive,
-        0
-};
-
-#define E1000State_OFFSET(field) offsetof(E1000State, field)
-
-#define ___GET_E1000STATE_OFFSET(type, ref_field)   \
-        if(!strcmp(field, #ref_field))              \
-        {                                           \
-            *offset = E1000State_OFFSET(ref_field); \
-            *size = sizeof(type);                   \
-            return 1;                               \
-        }
-
-uint64_t crete_get_e1000State_size(void)
-{
-    return sizeof(E1000State);
-}
-
-bool crete_get_e1000State_offset(const char *field, uint64_t *offset, uint64_t *size)
-{
-    // typedef struct E1000State_st {
-
-    //     PCIDevice parent_obj;
-    ___GET_E1000STATE_OFFSET(PCIDevice, parent_obj);
-    //     NICState *nic;
-    ___GET_E1000STATE_OFFSET(NICState *, nic);
-
-    //     NICConf conf;
-    ___GET_E1000STATE_OFFSET(NICConf, conf);
-    //     MemoryRegion mmio;
-    ___GET_E1000STATE_OFFSET(MemoryRegion, mmio);
-    //     MemoryRegion io;
-    ___GET_E1000STATE_OFFSET(MemoryRegion, io);
-    //    uint32_t mac_reg[0x8000];
-    ___GET_E1000STATE_OFFSET(uint32_t, mac_reg);
-    //    uint16_t phy_reg[0x20];
-    ___GET_E1000STATE_OFFSET(uint16_t, phy_reg);
-    //    uint16_t eeprom_data[64];
-    ___GET_E1000STATE_OFFSET(uint16_t, eeprom_data);
-    //     uint32_t rxbuf_size;
-    ___GET_E1000STATE_OFFSET(uint32_t, rxbuf_size);
-    //     uint32_t rxbuf_min_shift;
-    ___GET_E1000STATE_OFFSET(uint32_t, rxbuf_min_shift);
-
-    //     struct e1000_tx {
-    //         unsigned char header[256];
-    ___GET_E1000STATE_OFFSET(unsigned char, tx.header);
-    //         unsigned char vlan_header[4];
-    ___GET_E1000STATE_OFFSET(unsigned char, tx.vlan_header);
-    //         unsigned char vlan[4];
-    ___GET_E1000STATE_OFFSET(unsigned char, tx.vlan);
-    //         unsigned char data[0x10000];
-    ___GET_E1000STATE_OFFSET(unsigned char, tx.data);
-    //         uint16_t size;
-    ___GET_E1000STATE_OFFSET(uint16_t, tx.size);
-    //         unsigned char sum_needed;
-    ___GET_E1000STATE_OFFSET(unsigned char, tx.sum_needed);
-    //         unsigned char vlan_needed;
-    ___GET_E1000STATE_OFFSET(unsigned char, tx.vlan_needed);
-    //         uint8_t ipcss;
-    ___GET_E1000STATE_OFFSET(uint8_t, tx.ipcss);
-    //         uint8_t ipcso;
-    ___GET_E1000STATE_OFFSET(uint8_t, tx.ipcso);
-    //         uint16_t ipcse;
-    ___GET_E1000STATE_OFFSET(uint16_t, tx.ipcse);
-    //         uint8_t tucss;
-    ___GET_E1000STATE_OFFSET(uint8_t, tx.tucss);
-    //         uint8_t tucso;
-    ___GET_E1000STATE_OFFSET(uint8_t, tx.tucso);
-    //         uint16_t tucse;
-    ___GET_E1000STATE_OFFSET(uint16_t, tx.tucse);
-    //         uint8_t hdr_len;
-    ___GET_E1000STATE_OFFSET(uint8_t, tx.hdr_len);
-    //         uint16_t mss;
-    ___GET_E1000STATE_OFFSET(uint16_t, tx.mss);
-    //         uint32_t paylen;
-    ___GET_E1000STATE_OFFSET(uint32_t, tx.paylen);
-    //         uint16_t tso_frames;
-    ___GET_E1000STATE_OFFSET(uint16_t, tx.tso_frames);
-    //         char tse;
-    ___GET_E1000STATE_OFFSET(char, tx.tse);
-    //         int8_t ip;
-    ___GET_E1000STATE_OFFSET(int8_t, tx.ip);
-    //         int8_t tcp;
-    ___GET_E1000STATE_OFFSET(int8_t, tx.tcp);
-    //         char cptse;
-    ___GET_E1000STATE_OFFSET(char, tx.cptse);
-    //     } tx;
-
-    //     struct {
-    //         uint32_t val_in; // shifted in from guest driver
-    ___GET_E1000STATE_OFFSET(uint32_t, eecd_state.val_in);
-    //         uint16_t bitnum_in;
-    ___GET_E1000STATE_OFFSET(uint16_t, eecd_state.bitnum_in);
-    //         uint16_t bitnum_out;
-    ___GET_E1000STATE_OFFSET(uint16_t, eecd_state.bitnum_out);
-    //         uint16_t reading;
-    ___GET_E1000STATE_OFFSET(uint16_t, eecd_state.reading);
-    //         uint32_t old_eecd;
-    ___GET_E1000STATE_OFFSET(uint32_t, eecd_state.old_eecd);
-    //     } eecd_state;
-
-    //     QEMUTimer *autoneg_timer;
-    ___GET_E1000STATE_OFFSET(QEMUTimer *, autoneg_timer);
-    //     QEMUTimer *mit_timer;
-    ___GET_E1000STATE_OFFSET(QEMUTimer *, mit_timer);
-    //     bool mit_timer_on;
-    ___GET_E1000STATE_OFFSET(bool, mit_timer_on);
-    //     bool mit_irq_level;
-    ___GET_E1000STATE_OFFSET(bool, mit_irq_level);
-    //     uint32_t mit_ide;
-    ___GET_E1000STATE_OFFSET(uint32_t, mit_ide);
-    //     uint32_t compat_flags;
-    ___GET_E1000STATE_OFFSET(uint32_t, compat_flags);
-    // } E1000State;
-
-    return 0;
-}
-#endif

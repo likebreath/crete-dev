@@ -204,6 +204,9 @@ typedef vector<debug_memoSyncTable_ty> debug_memoSyncTables_ty;
 // vector<>: contents
 typedef pair<bool, vector<CPUStateElement> > cpuStateSyncTable_ty;
 
+typedef CPUStateElement E1000StateElement;
+typedef cpuStateSyncTable_ty e1000StateSyncTable_ty;
+
 typedef pair<QemuInterruptInfo, bool> interruptState_ty;
 
 //<name, concolic_memo>
@@ -220,6 +223,12 @@ private:
     TCGLLVMOfflineContext m_tcg_llvm_offline_ctx;
     void *m_tlo_ctx_cpuState;
 
+    // Hardware State
+    // - Flags
+    bool m_flag_HWState_post_interest;
+    bool m_flag_HWState_pre_interest;
+
+    // - CPU State
     // Initial CPU state
     vector<uint8_t> m_initial_CpuState;
     // CpuState Side-effects
@@ -228,11 +237,17 @@ private:
     // A CPUState right after  a set of consecutive interested TBs,
     // which will be compared with a CPUState right before a set of
     // consecutive interested TBs to compute side effects on CPUState
-    pair<bool, void *> m_cpuState_post_insterest;
+    void *m_cpuState_post_insterest;
     // The CPUState before the execution of potential interested TBs
-    pair<bool, void *> m_cpuState_pre_interest;
+    void *m_cpuState_pre_interest;
     // The CPUState after each interested TB being executed for cross checking on klee side
     vector<cpuStateSyncTable_ty> m_debug_cpuStateSyncTables;
+
+    // - E1000 State
+    vector<uint8_t> m_initial_e1000State;
+    vector<e1000StateSyncTable_ty> m_e1000StateSyncTables;
+    void *m_e1000State_post_insterest;
+    void *m_e1000State_pre_interest;
 
     memoSyncTables_ty m_memoSyncTables;
     memoSyncTable_ty m_currentMemoSyncTable;
@@ -313,15 +328,15 @@ public:
 	void dump_tloCtx(void * cpuState, TranslationBlock *tb,
 	        uint64_t crete_interrupted_pc);
 
-	// CPU state and its side-effect
-    void addInitialCpuState();
+    // Hardware States and their side-effect
+    void addInitialHardwareState();
 
-    void addcpuStateSyncTable();
-    void addEmptyCPUStateSyncTable();
-    void setCPUStatePostInterest(const void *src);
-    void setFlagCPUStatePostInterest();
-    void setCPUStatePreInterest(const void *src);
-    void resetCPUStatePreInterest();
+    void addHardwareStateSyncTable();
+    void addEmptyHardwareStateSyncTable();
+    void setHardwareStatePostInterest(const void *cpustate, const void *e1000State);
+    void setHardwareStatePreInterest(const void *cpustate, const void *e1000State);
+    void setFlagHardwareStatePostInterest();
+    void resetFlagHardwareStatePreInterest();
 
     void addDebugCpuStateSyncTable(void *qemuCpuState);
     void printDebugCpuStateSyncTable(const string name) const;
@@ -414,8 +429,8 @@ private:
     void debugMergeMemoSync();
     void print_memoSyncTables();
 
-    void writeInitialCpuState();
-    void checkEmptyCPUStateSyncTables();
+    void writeInitialHardwareState();
+    void checkEmptyHardwareStateSyncTables();
     void writeCPUStateSyncTables();
     void writeDebugCPUStateSyncTables();
     void writeDebugCpuStateOffsets();
