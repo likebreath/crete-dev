@@ -210,8 +210,8 @@ set_phy_ctrl(E1000State *s, int index, uint16_t val)
     if (have_autoneg(s) && (val & MII_CR_RESTART_AUTO_NEG)) {
         e1000_link_down(s);
         DBGOUT(PHY, "Start link auto negotiation\n");
-        timer_mod(s->autoneg_timer,
-                  qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 500);
+//        timer_mod(s->autoneg_timer,
+//                  qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 500);
     }
 }
 
@@ -286,7 +286,7 @@ mit_update_delay(uint32_t *curr, uint32_t value)
 static void
 set_interrupt_cause(E1000State *s, int index, uint32_t val)
 {
-    PCIDevice *d = PCI_DEVICE(s);
+//    PCIDevice *d = PCI_DEVICE(s);
     uint32_t pending_ints;
     uint32_t mit_delay;
 
@@ -334,15 +334,15 @@ set_interrupt_cause(E1000State *s, int index, uint32_t val)
 
             if (mit_delay) {
                 s->mit_timer_on = 1;
-                timer_mod(s->mit_timer, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
-                          mit_delay * 256);
+//                timer_mod(s->mit_timer, qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL) +
+//                          mit_delay * 256);
             }
             s->mit_ide = 0;
         }
     }
 
     s->mit_irq_level = (pending_ints != 0);
-    pci_set_irq(d, s->mit_irq_level);
+//    pci_set_irq(d, s->mit_irq_level);
 }
 
 static void
@@ -363,18 +363,9 @@ set_ics(E1000State *s, int index, uint32_t val)
     set_interrupt_cause(s, 0, val | s->mac_reg[ICR]);
 }
 
-static void
-e1000_autoneg_timer(void *opaque)
-{
-    E1000State *s = opaque;
-    if (!qemu_get_queue(s->nic)->link_down) {
-        e1000_link_up(s);
-        s->phy_reg[PHY_LP_ABILITY] |= MII_LPAR_LPACK;
-        s->phy_reg[PHY_STATUS] |= MII_SR_AUTONEG_COMPLETE;
-        DBGOUT(PHY, "Auto negotiation is completed\n");
-        set_ics(s, 0, E1000_ICS_LSC); /* signal link status change to guest */
-    }
-}
+
+//static void
+//e1000_autoneg_timer(void *opaque)
 
 static int
 rxbufsize(uint32_t v)
@@ -399,39 +390,7 @@ rxbufsize(uint32_t v)
     return 2048;
 }
 
-static void e1000_reset(void *opaque)
-{
-    E1000State *d = opaque;
-    E1000BaseClass *edc = E1000_DEVICE_GET_CLASS(d);
-    uint8_t *macaddr = d->conf.macaddr.a;
-    int i;
-
-    timer_del(d->autoneg_timer);
-    timer_del(d->mit_timer);
-    d->mit_timer_on = 0;
-    d->mit_irq_level = 0;
-    d->mit_ide = 0;
-    memset(d->phy_reg, 0, sizeof d->phy_reg);
-    memmove(d->phy_reg, phy_reg_init, sizeof phy_reg_init);
-    d->phy_reg[PHY_ID2] = edc->phy_id2;
-    memset(d->mac_reg, 0, sizeof d->mac_reg);
-    memmove(d->mac_reg, mac_reg_init, sizeof mac_reg_init);
-    d->rxbuf_min_shift = 1;
-    memset(&d->tx, 0, sizeof d->tx);
-
-    if (qemu_get_queue(d->nic)->link_down) {
-        e1000_link_down(d);
-    }
-
-    /* Some guests expect pre-initialized RAH/RAL (AddrValid flag + MACaddr) */
-    d->mac_reg[RA] = 0;
-    d->mac_reg[RA + 1] = E1000_RAH_AV;
-    for (i = 0; i < 4; i++) {
-        d->mac_reg[RA] |= macaddr[i] << (8 * i);
-        d->mac_reg[RA + 1] |= (i < 2) ? macaddr[i + 4] << (8 * i) : 0;
-    }
-    qemu_format_nic_info_str(qemu_get_queue(d->nic), macaddr);
-}
+//static void e1000_reset(void *opaque)
 
 static void
 set_ctrl(E1000State *s, int index, uint32_t val)
@@ -448,7 +407,7 @@ set_rx_control(E1000State *s, int index, uint32_t val)
     s->rxbuf_min_shift = ((val / E1000_RCTL_RDMTS_QUAT) & 3) + 1;
     DBGOUT(RX, "RCTL: %d, mac_reg[RCTL] = 0x%x\n", s->mac_reg[RDT],
            s->mac_reg[RCTL]);
-    qemu_flush_queued_packets(qemu_get_queue(s->nic));
+//    qemu_flush_queued_packets(qemu_get_queue(s->nic));
 }
 
 static void
@@ -596,15 +555,16 @@ fcs_len(E1000State *s)
     return (s->mac_reg[RCTL] & E1000_RCTL_SECRC) ? 0 : 4;
 }
 
+// TODO: xxx the struct pointed by 's->nic' is not captured
 static void
 e1000_send_packet(E1000State *s, const uint8_t *buf, int size)
 {
-    NetClientState *nc = qemu_get_queue(s->nic);
-    if (s->phy_reg[PHY_CTRL] & MII_CR_LOOPBACK) {
-        nc->info->receive(nc, buf, size);
-    } else {
-        qemu_send_packet(nc, buf, size);
-    }
+//    NetClientState *nc = qemu_get_queue(s->nic);
+//    if (s->phy_reg[PHY_CTRL] & MII_CR_LOOPBACK) {
+//        nc->info->receive(nc, buf, size);
+//    } else {
+//        qemu_send_packet(nc, buf, size);
+//    }
 }
 
 static void
@@ -877,28 +837,8 @@ receive_filter(E1000State *s, const uint8_t *buf, int size)
     return 0;
 }
 
-static void
-e1000_set_link_status(NetClientState *nc)
-{
-    E1000State *s = qemu_get_nic_opaque(nc);
-    uint32_t old_status = s->mac_reg[STATUS];
-
-    if (nc->link_down) {
-        e1000_link_down(s);
-    } else {
-        if (have_autoneg(s) &&
-            !(s->phy_reg[PHY_STATUS] & MII_SR_AUTONEG_COMPLETE)) {
-            /* emulate auto-negotiation if supported */
-            timer_mod(s->autoneg_timer,
-                      qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 500);
-        } else {
-            e1000_link_up(s);
-        }
-    }
-
-    if (s->mac_reg[STATUS] != old_status)
-        set_ics(s, 0, E1000_ICR_LSC);
-}
+//static void
+//e1000_set_link_status(NetClientState *nc)
 
 static bool e1000_has_rxbufs(E1000State *s, size_t total_size)
 {
@@ -918,16 +858,8 @@ static bool e1000_has_rxbufs(E1000State *s, size_t total_size)
     return total_size <= bufs * s->rxbuf_size;
 }
 
-static int
-e1000_can_receive(NetClientState *nc)
-{
-    E1000State *s = qemu_get_nic_opaque(nc);
-
-    return (s->mac_reg[STATUS] & E1000_STATUS_LU) &&
-        (s->mac_reg[RCTL] & E1000_RCTL_EN) &&
-        (s->parent_obj.config[PCI_COMMAND] & PCI_COMMAND_MASTER) &&
-        e1000_has_rxbufs(s, 1);
-}
+//static int
+//e1000_can_receive(NetClientState *nc)
 
 static uint64_t rx_desc_base(E1000State *s)
 {
@@ -1148,7 +1080,7 @@ mac_writereg(E1000State *s, int index, uint32_t val)
     if (index == RA + 1) {
         macaddr[0] = cpu_to_le32(s->mac_reg[RA]);
         macaddr[1] = cpu_to_le32(s->mac_reg[RA + 1]);
-        qemu_format_nic_info_str(qemu_get_queue(s->nic), (uint8_t *)macaddr);
+//        qemu_format_nic_info_str(qemu_get_queue(s->nic), (uint8_t *)macaddr);
     }
 }
 
@@ -1157,7 +1089,7 @@ set_rdt(E1000State *s, int index, uint32_t val)
 {
     s->mac_reg[index] = val & 0xffff;
     if (e1000_has_rxbufs(s, 1)) {
-        qemu_flush_queued_packets(qemu_get_queue(s->nic));
+//        qemu_flush_queued_packets(qemu_get_queue(s->nic));
     }
 }
 
@@ -1273,421 +1205,21 @@ e1000_mmio_read(void *opaque, hwaddr addr, unsigned size)
     return 0;
 }
 
-static const MemoryRegionOps e1000_mmio_ops = {
-    .read = e1000_mmio_read,
-    .write = e1000_mmio_write,
-    .endianness = DEVICE_LITTLE_ENDIAN,
-    .impl = {
-        .min_access_size = 4,
-        .max_access_size = 4,
-    },
-};
+//static void
+//e1000_mmio_write(void *opaque, hwaddr addr, uint64_t val,
+//                 unsigned size)
+//static uint64_t
+//e1000_mmio_read(void *opaque, hwaddr addr, unsigned size)
 
-static uint64_t e1000_io_read(void *opaque, hwaddr addr,
-                              unsigned size)
+extern char crete_e1000_state[sizeof(E1000State)];
+
+uint64_t dispatch_vd_op(uint64_t v_addr, uint64_t p_addr, int size, uint64_t value, int is_write)
 {
-    E1000State *s = opaque;
-
-    (void)s;
-    return 0;
-}
-
-static void e1000_io_write(void *opaque, hwaddr addr,
-                           uint64_t val, unsigned size)
-{
-    E1000State *s = opaque;
-
-    (void)s;
-}
-
-static const MemoryRegionOps e1000_io_ops = {
-    .read = e1000_io_read,
-    .write = e1000_io_write,
-    .endianness = DEVICE_LITTLE_ENDIAN,
-};
-
-static bool is_version_1(void *opaque, int version_id)
-{
-    return version_id == 1;
-}
-
-static void e1000_pre_save(void *opaque)
-{
-    E1000State *s = opaque;
-    NetClientState *nc = qemu_get_queue(s->nic);
-
-    /* If the mitigation timer is active, emulate a timeout now. */
-    if (s->mit_timer_on) {
-        e1000_mit_timer(s);
-    }
-
-    /*
-     * If link is down and auto-negotiation is supported and ongoing,
-     * complete auto-negotiation immediately. This allows us to look
-     * at MII_SR_AUTONEG_COMPLETE to infer link status on load.
-     */
-    if (nc->link_down && have_autoneg(s)) {
-        s->phy_reg[PHY_STATUS] |= MII_SR_AUTONEG_COMPLETE;
-    }
-}
-
-static int e1000_post_load(void *opaque, int version_id)
-{
-    E1000State *s = opaque;
-    NetClientState *nc = qemu_get_queue(s->nic);
-
-    if (!(s->compat_flags & E1000_FLAG_MIT)) {
-        s->mac_reg[ITR] = s->mac_reg[RDTR] = s->mac_reg[RADV] =
-            s->mac_reg[TADV] = 0;
-        s->mit_irq_level = false;
-    }
-    s->mit_ide = 0;
-    s->mit_timer_on = false;
-
-    /* nc.link_down can't be migrated, so infer link_down according
-     * to link status bit in mac_reg[STATUS].
-     * Alternatively, restart link negotiation if it was in progress. */
-    nc->link_down = (s->mac_reg[STATUS] & E1000_STATUS_LU) == 0;
-
-    if (have_autoneg(s) &&
-        !(s->phy_reg[PHY_STATUS] & MII_SR_AUTONEG_COMPLETE)) {
-        nc->link_down = false;
-        timer_mod(s->autoneg_timer,
-                  qemu_clock_get_ms(QEMU_CLOCK_VIRTUAL) + 500);
-    }
-
-    return 0;
-}
-
-static bool e1000_mit_state_needed(void *opaque)
-{
-    E1000State *s = opaque;
-
-    return s->compat_flags & E1000_FLAG_MIT;
-}
-
-static const VMStateDescription vmstate_e1000_mit_state = {
-    .name = "e1000/mit_state",
-    .version_id = 1,
-    .minimum_version_id = 1,
-    .fields = (VMStateField[]) {
-        VMSTATE_UINT32(mac_reg[RDTR], E1000State),
-        VMSTATE_UINT32(mac_reg[RADV], E1000State),
-        VMSTATE_UINT32(mac_reg[TADV], E1000State),
-        VMSTATE_UINT32(mac_reg[ITR], E1000State),
-        VMSTATE_BOOL(mit_irq_level, E1000State),
-        VMSTATE_END_OF_LIST()
-    }
-};
-
-static const VMStateDescription vmstate_e1000 = {
-    .name = "e1000",
-    .version_id = 2,
-    .minimum_version_id = 1,
-    .pre_save = e1000_pre_save,
-    .post_load = e1000_post_load,
-    .fields = (VMStateField[]) {
-        VMSTATE_PCI_DEVICE(parent_obj, E1000State),
-        VMSTATE_UNUSED_TEST(is_version_1, 4), /* was instance id */
-        VMSTATE_UNUSED(4), /* Was mmio_base.  */
-        VMSTATE_UINT32(rxbuf_size, E1000State),
-        VMSTATE_UINT32(rxbuf_min_shift, E1000State),
-        VMSTATE_UINT32(eecd_state.val_in, E1000State),
-        VMSTATE_UINT16(eecd_state.bitnum_in, E1000State),
-        VMSTATE_UINT16(eecd_state.bitnum_out, E1000State),
-        VMSTATE_UINT16(eecd_state.reading, E1000State),
-        VMSTATE_UINT32(eecd_state.old_eecd, E1000State),
-        VMSTATE_UINT8(tx.ipcss, E1000State),
-        VMSTATE_UINT8(tx.ipcso, E1000State),
-        VMSTATE_UINT16(tx.ipcse, E1000State),
-        VMSTATE_UINT8(tx.tucss, E1000State),
-        VMSTATE_UINT8(tx.tucso, E1000State),
-        VMSTATE_UINT16(tx.tucse, E1000State),
-        VMSTATE_UINT32(tx.paylen, E1000State),
-        VMSTATE_UINT8(tx.hdr_len, E1000State),
-        VMSTATE_UINT16(tx.mss, E1000State),
-        VMSTATE_UINT16(tx.size, E1000State),
-        VMSTATE_UINT16(tx.tso_frames, E1000State),
-        VMSTATE_UINT8(tx.sum_needed, E1000State),
-        VMSTATE_INT8(tx.ip, E1000State),
-        VMSTATE_INT8(tx.tcp, E1000State),
-        VMSTATE_BUFFER(tx.header, E1000State),
-        VMSTATE_BUFFER(tx.data, E1000State),
-        VMSTATE_UINT16_ARRAY(eeprom_data, E1000State, 64),
-        VMSTATE_UINT16_ARRAY(phy_reg, E1000State, 0x20),
-        VMSTATE_UINT32(mac_reg[CTRL], E1000State),
-        VMSTATE_UINT32(mac_reg[EECD], E1000State),
-        VMSTATE_UINT32(mac_reg[EERD], E1000State),
-        VMSTATE_UINT32(mac_reg[GPRC], E1000State),
-        VMSTATE_UINT32(mac_reg[GPTC], E1000State),
-        VMSTATE_UINT32(mac_reg[ICR], E1000State),
-        VMSTATE_UINT32(mac_reg[ICS], E1000State),
-        VMSTATE_UINT32(mac_reg[IMC], E1000State),
-        VMSTATE_UINT32(mac_reg[IMS], E1000State),
-        VMSTATE_UINT32(mac_reg[LEDCTL], E1000State),
-        VMSTATE_UINT32(mac_reg[MANC], E1000State),
-        VMSTATE_UINT32(mac_reg[MDIC], E1000State),
-        VMSTATE_UINT32(mac_reg[MPC], E1000State),
-        VMSTATE_UINT32(mac_reg[PBA], E1000State),
-        VMSTATE_UINT32(mac_reg[RCTL], E1000State),
-        VMSTATE_UINT32(mac_reg[RDBAH], E1000State),
-        VMSTATE_UINT32(mac_reg[RDBAL], E1000State),
-        VMSTATE_UINT32(mac_reg[RDH], E1000State),
-        VMSTATE_UINT32(mac_reg[RDLEN], E1000State),
-        VMSTATE_UINT32(mac_reg[RDT], E1000State),
-        VMSTATE_UINT32(mac_reg[STATUS], E1000State),
-        VMSTATE_UINT32(mac_reg[SWSM], E1000State),
-        VMSTATE_UINT32(mac_reg[TCTL], E1000State),
-        VMSTATE_UINT32(mac_reg[TDBAH], E1000State),
-        VMSTATE_UINT32(mac_reg[TDBAL], E1000State),
-        VMSTATE_UINT32(mac_reg[TDH], E1000State),
-        VMSTATE_UINT32(mac_reg[TDLEN], E1000State),
-        VMSTATE_UINT32(mac_reg[TDT], E1000State),
-        VMSTATE_UINT32(mac_reg[TORH], E1000State),
-        VMSTATE_UINT32(mac_reg[TORL], E1000State),
-        VMSTATE_UINT32(mac_reg[TOTH], E1000State),
-        VMSTATE_UINT32(mac_reg[TOTL], E1000State),
-        VMSTATE_UINT32(mac_reg[TPR], E1000State),
-        VMSTATE_UINT32(mac_reg[TPT], E1000State),
-        VMSTATE_UINT32(mac_reg[TXDCTL], E1000State),
-        VMSTATE_UINT32(mac_reg[WUFC], E1000State),
-        VMSTATE_UINT32(mac_reg[VET], E1000State),
-        VMSTATE_UINT32_SUB_ARRAY(mac_reg, E1000State, RA, 32),
-        VMSTATE_UINT32_SUB_ARRAY(mac_reg, E1000State, MTA, 128),
-        VMSTATE_UINT32_SUB_ARRAY(mac_reg, E1000State, VFTA, 128),
-        VMSTATE_END_OF_LIST()
-    },
-    .subsections = (VMStateSubsection[]) {
-        {
-            .vmsd = &vmstate_e1000_mit_state,
-            .needed = e1000_mit_state_needed,
-        }, {
-            /* empty */
-        }
-    }
-};
-
-/*
- * EEPROM contents documented in Tables 5-2 and 5-3, pp. 98-102.
- * Note: A valid DevId will be inserted during pci_e1000_init().
- */
-static const uint16_t e1000_eeprom_template[64] = {
-    0x0000, 0x0000, 0x0000, 0x0000,      0xffff, 0x0000,      0x0000, 0x0000,
-    0x3000, 0x1000, 0x6403, 0 /*DevId*/, 0x8086, 0 /*DevId*/, 0x8086, 0x3040,
-    0x0008, 0x2000, 0x7e14, 0x0048,      0x1000, 0x00d8,      0x0000, 0x2700,
-    0x6cc9, 0x3150, 0x0722, 0x040b,      0x0984, 0x0000,      0xc000, 0x0706,
-    0x1008, 0x0000, 0x0f04, 0x7fff,      0x4d01, 0xffff,      0xffff, 0xffff,
-    0xffff, 0xffff, 0xffff, 0xffff,      0xffff, 0xffff,      0xffff, 0xffff,
-    0x0100, 0x4000, 0x121c, 0xffff,      0xffff, 0xffff,      0xffff, 0xffff,
-    0xffff, 0xffff, 0xffff, 0xffff,      0xffff, 0xffff,      0xffff, 0x0000,
-};
-
-/* PCI interface */
-
-static void
-e1000_mmio_setup(E1000State *d)
-{
-    int i;
-    const uint32_t excluded_regs[] = {
-        E1000_MDIC, E1000_ICR, E1000_ICS, E1000_IMS,
-        E1000_IMC, E1000_TCTL, E1000_TDT, PNPMMIO_SIZE
-    };
-
-    memory_region_init_io(&d->mmio, OBJECT(d), &e1000_mmio_ops, d,
-                          "e1000-mmio", PNPMMIO_SIZE);
-    memory_region_add_coalescing(&d->mmio, 0, excluded_regs[0]);
-    for (i = 0; excluded_regs[i] != PNPMMIO_SIZE; i++)
-        memory_region_add_coalescing(&d->mmio, excluded_regs[i] + 4,
-                                     excluded_regs[i+1] - excluded_regs[i] - 4);
-    memory_region_init_io(&d->io, OBJECT(d), &e1000_io_ops, d, "e1000-io", IOPORT_SIZE);
-}
-
-static void
-pci_e1000_uninit(PCIDevice *dev)
-{
-    E1000State *d = E1000(dev);
-
-    timer_del(d->autoneg_timer);
-    timer_free(d->autoneg_timer);
-    timer_del(d->mit_timer);
-    timer_free(d->mit_timer);
-    qemu_del_nic(d->nic);
-}
-
-static NetClientInfo net_e1000_info = {
-    .type = NET_CLIENT_OPTIONS_KIND_NIC,
-    .size = sizeof(NICState),
-    .can_receive = e1000_can_receive,
-    .receive = e1000_receive,
-    .receive_iov = e1000_receive_iov,
-    .link_status_changed = e1000_set_link_status,
-};
-
-static void e1000_write_config(PCIDevice *pci_dev, uint32_t address,
-                                uint32_t val, int len)
-{
-    E1000State *s = E1000(pci_dev);
-
-    pci_default_write_config(pci_dev, address, val, len);
-
-    if (range_covers_byte(address, len, PCI_COMMAND) &&
-        (pci_dev->config[PCI_COMMAND] & PCI_COMMAND_MASTER)) {
-        qemu_flush_queued_packets(qemu_get_queue(s->nic));
-    }
-}
-
-
-static void pci_e1000_realize(PCIDevice *pci_dev, Error **errp)
-{
-    DeviceState *dev = DEVICE(pci_dev);
-    E1000State *d = E1000(pci_dev);
-    PCIDeviceClass *pdc = PCI_DEVICE_GET_CLASS(pci_dev);
-    uint8_t *pci_conf;
-    uint16_t checksum = 0;
-    int i;
-    uint8_t *macaddr;
-
-    pci_dev->config_write = e1000_write_config;
-
-    pci_conf = pci_dev->config;
-
-    /* TODO: RST# value should be 0, PCI spec 6.2.4 */
-    pci_conf[PCI_CACHE_LINE_SIZE] = 0x10;
-
-    pci_conf[PCI_INTERRUPT_PIN] = 1; /* interrupt pin A */
-
-    e1000_mmio_setup(d);
-
-    pci_register_bar(pci_dev, 0, PCI_BASE_ADDRESS_SPACE_MEMORY, &d->mmio);
-
-    pci_register_bar(pci_dev, 1, PCI_BASE_ADDRESS_SPACE_IO, &d->io);
-
-    memmove(d->eeprom_data, e1000_eeprom_template,
-        sizeof e1000_eeprom_template);
-    qemu_macaddr_default_if_unset(&d->conf.macaddr);
-    macaddr = d->conf.macaddr.a;
-    for (i = 0; i < 3; i++)
-        d->eeprom_data[i] = (macaddr[2*i+1]<<8) | macaddr[2*i];
-    d->eeprom_data[11] = d->eeprom_data[13] = pdc->device_id;
-    for (i = 0; i < EEPROM_CHECKSUM_REG; i++)
-        checksum += d->eeprom_data[i];
-    checksum = (uint16_t) EEPROM_SUM - checksum;
-    d->eeprom_data[EEPROM_CHECKSUM_REG] = checksum;
-
-    d->nic = qemu_new_nic(&net_e1000_info, &d->conf,
-                          object_get_typename(OBJECT(d)), dev->id, d);
-
-    qemu_format_nic_info_str(qemu_get_queue(d->nic), macaddr);
-
-    d->autoneg_timer = timer_new_ms(QEMU_CLOCK_VIRTUAL, e1000_autoneg_timer, d);
-    d->mit_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, e1000_mit_timer, d);
-}
-
-static void qdev_e1000_reset(DeviceState *dev)
-{
-    E1000State *d = E1000(dev);
-    e1000_reset(d);
-}
-
-static Property e1000_properties[] = {
-    DEFINE_NIC_PROPERTIES(E1000State, conf),
-    DEFINE_PROP_BIT("autonegotiation", E1000State,
-                    compat_flags, E1000_FLAG_AUTONEG_BIT, true),
-    DEFINE_PROP_BIT("mitigation", E1000State,
-                    compat_flags, E1000_FLAG_MIT_BIT, true),
-    DEFINE_PROP_END_OF_LIST(),
-};
-
-typedef struct E1000Info {
-    const char *name;
-    uint16_t   device_id;
-    uint8_t    revision;
-    uint16_t   phy_id2;
-} E1000Info;
-
-static void e1000_class_init(ObjectClass *klass, void *data)
-{
-    DeviceClass *dc = DEVICE_CLASS(klass);
-    PCIDeviceClass *k = PCI_DEVICE_CLASS(klass);
-    E1000BaseClass *e = E1000_DEVICE_CLASS(klass);
-    const E1000Info *info = data;
-
-    k->realize = pci_e1000_realize;
-    k->exit = pci_e1000_uninit;
-    k->romfile = "efi-e1000.rom";
-    k->vendor_id = PCI_VENDOR_ID_INTEL;
-    k->device_id = info->device_id;
-    k->revision = info->revision;
-    e->phy_id2 = info->phy_id2;
-    k->class_id = PCI_CLASS_NETWORK_ETHERNET;
-    set_bit(DEVICE_CATEGORY_NETWORK, dc->categories);
-    dc->desc = "Intel Gigabit Ethernet";
-    dc->reset = qdev_e1000_reset;
-    dc->vmsd = &vmstate_e1000;
-    dc->props = e1000_properties;
-}
-
-static void e1000_instance_init(Object *obj)
-{
-    E1000State *n = E1000(obj);
-    device_add_bootindex_property(obj, &n->conf.bootindex,
-                                  "bootindex", "/ethernet-phy@0",
-                                  DEVICE(n), NULL);
-}
-
-static const TypeInfo e1000_base_info = {
-    .name          = TYPE_E1000_BASE,
-    .parent        = TYPE_PCI_DEVICE,
-    .instance_size = sizeof(E1000State),
-    .instance_init = e1000_instance_init,
-    .class_size    = sizeof(E1000BaseClass),
-    .abstract      = true,
-};
-
-static const E1000Info e1000_devices[] = {
+    if(is_write)
     {
-        .name      = "e1000-82540em",
-        .device_id = E1000_DEV_ID_82540EM,
-        .revision  = 0x03,
-        .phy_id2   = E1000_PHY_ID2_8254xx_DEFAULT,
-    },
-    {
-        .name      = "e1000-82544gc",
-        .device_id = E1000_DEV_ID_82544GC_COPPER,
-        .revision  = 0x03,
-        .phy_id2   = E1000_PHY_ID2_82544x,
-    },
-    {
-        .name      = "e1000-82545em",
-        .device_id = E1000_DEV_ID_82545EM_COPPER,
-        .revision  = 0x03,
-        .phy_id2   = E1000_PHY_ID2_8254xx_DEFAULT,
-    },
-};
-
-static const TypeInfo e1000_default_info = {
-    .name          = "e1000",
-    .parent        = "e1000-82540em",
-};
-
-static void e1000_register_types(void)
-{
-    int i;
-
-    type_register_static(&e1000_base_info);
-    for (i = 0; i < ARRAY_SIZE(e1000_devices); i++) {
-        const E1000Info *info = &e1000_devices[i];
-        TypeInfo type_info = {};
-
-        type_info.name = info->name;
-        type_info.parent = TYPE_E1000_BASE;
-        type_info.class_data = (void *)info;
-        type_info.class_init = e1000_class_init;
-        type_info.instance_init = e1000_instance_init;
-
-        type_register(&type_info);
+        e1000_mmio_write(crete_e1000_state, p_addr, value, size);
+        return 0;
+    } else {
+        return e1000_mmio_read(crete_e1000_state, p_addr, size);
     }
-    type_register_static(&e1000_default_info);
 }
-
-type_init(e1000_register_types)
