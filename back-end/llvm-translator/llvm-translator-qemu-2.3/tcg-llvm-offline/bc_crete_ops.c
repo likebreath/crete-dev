@@ -72,7 +72,9 @@ struct VirtualDeviceOps
 const struct VirtualDeviceOps *vd_ops_table;
 uint32_t vd_ops_table_size;
 
-static int is_vd_op(uint64_t addr)
+// uint64_t e1000_mmio_read(void *opaque, hwaddr addr, unsigned size);
+
+static const struct VirtualDeviceOps *get_current_vd_op(uint64_t addr)
 {
     const struct VirtualDeviceOps *current_vd_op;
     for(uint32_t i = 0; i < vd_ops_table_size; ++i)
@@ -80,7 +82,7 @@ static int is_vd_op(uint64_t addr)
         current_vd_op = vd_ops_table + i;
         if(addr == current_vd_op->m_virt_addr)
         {
-            return 1;
+            return current_vd_op;
         }
     }
 
@@ -99,15 +101,23 @@ void crete_sync_device(const struct VirtualDeviceOps *sync_table, uint32_t st_si
     internal_crete_sync_device(sync_table, st_size);
 }
 
-extern int replay_vd(uint64_t virt_addr, int size, int is_write);
-uint64_t crete_try_device_memory_access(uint64_t addr, int size, int *is_device_access, int is_write)
+extern uint64_t dispatch_vd_op(uint64_t v_addr, uint64_t p_addr, int size, uint64_t value, int is_write);
+uint64_t crete_try_device_memory_access(uint64_t addr, int size, uint64_t value, int is_write, int *is_device_access)
 {
-    if(!is_vd_op(addr))
+    const struct VirtualDeviceOps *current_vd_op = get_current_vd_op(addr);
+    if(!current_vd_op)
     {
         *is_device_access = 0;
         return 0;
     }
 
     *is_device_access = 1;
-    return replay_vd(addr, size, is_write);
+    return dispatch_vd_op(addr, current_vd_op->m_phys_addr, size, value, is_write);
+}
+
+typedef struct CPUStateElement E1000StateElement;
+void crete_sync_e1000_state(uint8_t *e1000_state, uint32_t es_size,
+        const E1000StateElement *sync_table, uint32_t st_size)
+{
+    internal_sync_cpu_state(e1000_state, es_size, sync_table, st_size);
 }

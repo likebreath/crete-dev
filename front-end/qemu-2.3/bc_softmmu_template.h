@@ -94,7 +94,7 @@
 
 void crete_todo_op_helper(); /* dummy declaration to indicate the todo works*/
 uint64_t crete_get_dynamic_addr(uint64_t static_addr);
-uint64_t crete_try_device_memory_access(uint64_t addr, int size, int *is_device_access, int is_write);
+uint64_t crete_try_device_memory_access(uint64_t addr, int size, uint64_t value, int is_write, int *is_device_access);
 
 #ifndef SOFTMMU_CODE_ACCESS
 static inline DATA_TYPE glue(io_read, SUFFIX)(CPUArchState *env,
@@ -116,7 +116,8 @@ WORD_TYPE helper_le_ld_name(CPUArchState *env, target_ulong addr, int mmu_idx,
     DATA_TYPE res;
 
     int is_device_access;
-    res = (DATA_TYPE)crete_try_device_memory_access(addr, DATA_SIZE, &is_device_access, 0);
+
+    res = (DATA_TYPE)crete_try_device_memory_access(addr, DATA_SIZE, 0, 0, &is_device_access);
     if(is_device_access)
         return res;
 
@@ -140,7 +141,7 @@ WORD_TYPE helper_be_ld_name(CPUArchState *env, target_ulong addr, int mmu_idx,
     DATA_TYPE res;
 
     int is_device_access;
-    res = (DATA_TYPE)crete_try_device_memory_access(addr, DATA_SIZE, &is_device_access, 0);
+    res = (DATA_TYPE)crete_try_device_memory_access(addr, DATA_SIZE, 0, 0, &is_device_access);
     if(is_device_access)
         return res;
 
@@ -192,7 +193,7 @@ void helper_le_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
                        int mmu_idx, uintptr_t retaddr)
 {
     int is_device_access;
-    crete_try_device_memory_access(addr, DATA_SIZE, &is_device_access, 1);
+    crete_try_device_memory_access(addr, DATA_SIZE, val, 1, &is_device_access);
     if(is_device_access)
         return;
 
@@ -209,7 +210,7 @@ void helper_be_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
                        int mmu_idx, uintptr_t retaddr)
 {
     int is_device_access;
-    crete_try_device_memory_access(addr, DATA_SIZE, &is_device_access, 1);
+    crete_try_device_memory_access(addr, DATA_SIZE, val, 1, &is_device_access);
     if(is_device_access)
         return;
 

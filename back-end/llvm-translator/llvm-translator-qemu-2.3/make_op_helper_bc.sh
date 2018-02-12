@@ -7,7 +7,7 @@ echo "[Target-x86_64] GEN: bc_target_x86_64_helpers.bc" & cp \
 tcg-llvm-offline/op_helpers/bc_target_x86_64_helpers.bc \
 x86_64-softmmu/
 
-echo "GEN: bc_crete_ops.bc" & clang-3.4  \
+echo "GEN: bc_crete_ops.bc" & clang-3.4                \
     -c                                                 \
     -O2                                                \
     -emit-llvm                                         \
@@ -15,7 +15,7 @@ echo "GEN: bc_crete_ops.bc" & clang-3.4  \
     -o bc_crete_ops.bc
 
 
-echo "GEN: bc_crete_ops.bc" & clang-3.4  \
+echo "GEN: bc_crete_ops_lli.bc" & clang-3.4            \
     -c                                                 \
     -O2                                                \
     -emit-llvm                                         \
