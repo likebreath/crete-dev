@@ -81,7 +81,8 @@ namespace crete
         TestCase(const TestCase& tc);
         TestCase(const crete::TestCasePatchTraceTag_ty& tcp_tt,
                  const std::vector<crete::TestCasePatchElement_ty>& tcp_elems,
-                 const TestCaseIssueIndex& base_tc_issue_index);
+                 const TestCaseIssueIndex& base_tc_issue_index,
+                 const bool from_captured_br);
 
         void add_element(const TestCaseElement& e) { elems_.push_back(e); }
 
@@ -124,6 +125,7 @@ namespace crete
             ar & m_base_tc_issue_index;
             ar & m_tcp_tt;
             ar & m_tcp_elems;
+            ar & m_from_captured_br;
 
             ar & elems_;
 
@@ -149,6 +151,7 @@ namespace crete
 
         TestCasePatchTraceTag_ty m_tcp_tt;
         vector<TestCasePatchElement_ty> m_tcp_elems;
+        bool m_from_captured_br;
 
         TestCaseElements elems_;
         creteTraceTag_ty m_explored_nodes;

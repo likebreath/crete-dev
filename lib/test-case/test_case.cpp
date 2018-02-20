@@ -119,6 +119,7 @@ namespace crete
         TestCase ret(base);
         ret.m_issue_index = patch.m_issue_index;
         ret.m_base_tc_issue_index = patch.m_base_tc_issue_index;
+        ret.m_from_captured_br = patch.m_from_captured_br;
         map<string, uint64_t> elem_name_to_index;
         for(uint64_t i = 0; i < ret.elems_.size(); ++i)
         {
@@ -166,7 +167,10 @@ namespace crete
                     semi_explored_br_taken.begin() +
                     (negate_tt_node_br_index - last_node_br_taken.size()) + 1);
 
-            last_node_br_taken.back() = !last_node_br_taken.back();
+            // Only negate branch when the tc is for a branch from captured instructions
+            if(patch.m_from_captured_br){
+                last_node_br_taken.back() = !last_node_br_taken.back();
+            }
         } else {
             assert(negate_tt_index >=  ret.m_explored_nodes.size());
             assert(negate_tt_index < (ret.m_explored_nodes.size() + ret.m_new_nodes.size()) );
@@ -178,7 +182,11 @@ namespace crete
             vector<bool>& last_node_br_taken = ret.m_explored_nodes.back().m_br_taken;
             assert(negate_tt_node_br_index < last_node_br_taken.size());
             last_node_br_taken.resize(negate_tt_node_br_index + 1);
-            last_node_br_taken.back() = !last_node_br_taken.back();
+
+            // Only negate branch when the tc is for a branch from captured instructions
+            if(patch.m_from_captured_br){
+                last_node_br_taken.back() = !last_node_br_taken.back();
+            }
         }
 
         assert(ret.m_explored_nodes.size() == (negate_tt_index + 1) );
@@ -208,19 +216,22 @@ namespace crete
         priority_(0),
         m_patch(false),
         m_issue_index(0),
-        m_base_tc_issue_index(0)
+        m_base_tc_issue_index(0),
+        m_from_captured_br(true)
     {
     }
 
     TestCase::TestCase(const crete::TestCasePatchTraceTag_ty& tcp_tt,
             const std::vector<crete::TestCasePatchElement_ty>& tcp_elems,
-            const TestCaseIssueIndex& base_tc_issue_index)
+            const TestCaseIssueIndex& base_tc_issue_index,
+            const bool from_captured_br)
     :priority_(0),
      m_patch(true),
      m_tcp_tt(tcp_tt),
      m_tcp_elems(tcp_elems),
      m_issue_index(0),
-     m_base_tc_issue_index(base_tc_issue_index)
+     m_base_tc_issue_index(base_tc_issue_index),
+     m_from_captured_br(from_captured_br)
     {}
 
     TestCase::TestCase(const TestCase& tc)
@@ -230,6 +241,7 @@ namespace crete
      m_base_tc_issue_index(tc.m_base_tc_issue_index),
      m_tcp_tt(tc.m_tcp_tt),
      m_tcp_elems(tc.m_tcp_elems),
+     m_from_captured_br(tc.m_from_captured_br),
      elems_(tc.elems_),
      m_explored_nodes(tc.m_explored_nodes),
      m_semi_explored_node(tc.m_semi_explored_node),
@@ -339,9 +351,9 @@ namespace crete
         {
             fprintf(stderr, "patch test case patch\n");
             fprintf(stderr, "m_issue_index = %lu, m_base_tc_issue_index = %lu\n"
-                    "m_tcp_tt=(%u, %u), m_tcp_elems.size() = %lu:\n",
+                    "m_tcp_tt=(%u, %u), m_tcp_elems.size() = %lu, m_from_captured_br = %d:\n",
                     m_issue_index, m_base_tc_issue_index,
-                    m_tcp_tt.first, m_tcp_tt.second, m_tcp_elems.size());
+                    m_tcp_tt.first, m_tcp_tt.second, m_tcp_elems.size(), m_from_captured_br);
 
             for(uint64_t i = 0; i < m_tcp_elems.size(); ++i) {
                 fprintf(stderr, "elm[%lu][%s]: ", i, m_tcp_elems[i].name.c_str());
