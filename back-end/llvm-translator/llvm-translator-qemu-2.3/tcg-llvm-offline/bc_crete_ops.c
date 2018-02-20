@@ -1,5 +1,8 @@
 #include "stdint.h"
 
+void crete_enable_fork();
+void crete_disable_fork();
+
 struct CPUStateElement
 {
     uint32_t m_offset;
@@ -54,12 +57,16 @@ __attribute__((noinline)) static void internal_crete_sync_memory(const struct Me
 void crete_sync_cpu_state(uint8_t *cpu_state, uint32_t cs_size,
         const struct CPUStateElement *sync_table, uint32_t st_size)
 {
+    crete_disable_fork();
     internal_sync_cpu_state(cpu_state, cs_size, sync_table, st_size);
+    crete_enable_fork();
 }
 
 void crete_sync_memory(const struct MemoryElement *sync_table, uint32_t st_size)
 {
+    crete_disable_fork();
     internal_crete_sync_memory(sync_table, st_size);
+    crete_enable_fork();
 }
 
 struct VirtualDeviceOps
@@ -98,18 +105,23 @@ __attribute__((noinline)) static void internal_crete_sync_device(
 
 void crete_sync_device(const struct VirtualDeviceOps *sync_table, uint32_t st_size)
 {
+    crete_disable_fork();
     internal_crete_sync_device(sync_table, st_size);
+    crete_enable_fork();
 }
 
 extern uint64_t dispatch_vd_op(uint64_t v_addr, uint64_t p_addr, int size, uint64_t value, int is_write);
 uint64_t crete_try_device_memory_access(uint64_t addr, int size, uint64_t value, int is_write, int *is_device_access)
 {
+    crete_disable_fork();
     const struct VirtualDeviceOps *current_vd_op = get_current_vd_op(addr);
     if(!current_vd_op)
     {
         *is_device_access = 0;
+        crete_enable_fork();
         return 0;
     }
+    crete_enable_fork();
 
     *is_device_access = 1;
     return dispatch_vd_op(addr, current_vd_op->m_phys_addr, size, value, is_write);
@@ -119,5 +131,7 @@ typedef struct CPUStateElement E1000StateElement;
 void crete_sync_e1000_state(uint8_t *e1000_state, uint32_t es_size,
         const E1000StateElement *sync_table, uint32_t st_size)
 {
+    crete_disable_fork();
     internal_sync_cpu_state(e1000_state, es_size, sync_table, st_size);
+    crete_enable_fork();
 }
