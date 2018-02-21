@@ -6,7 +6,7 @@
 
 echo "  LLVMCC    bc_i386_helpers.bc" && clang-3.4  \
     -c                                              \
-    -O2                                             \
+    -O0 -fno-inline                                 \
     -I./ 	                                    \
     -I../ 	                                    \
     -I../include 	                            \
@@ -27,7 +27,6 @@ echo "  LLVMCC    bc_i386_helpers.bc" && clang-3.4  \
     ../target-i386/bc_i386_helpers.c                \
     -o bc_i386_helpers.bc
 
-    # -O0 -fno-inline                                 \
 
 
 ### old flags
