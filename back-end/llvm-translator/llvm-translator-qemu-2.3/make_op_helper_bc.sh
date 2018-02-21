@@ -9,7 +9,7 @@ x86_64-softmmu/
 
 echo "GEN: bc_crete_ops.bc" & clang-3.4                \
     -c                                                 \
-    -O2                                                \
+    -O0 -fno-inline                                 \
     -emit-llvm                                         \
     tcg-llvm-offline/bc_crete_ops.c                    \
     -o bc_crete_ops.bc

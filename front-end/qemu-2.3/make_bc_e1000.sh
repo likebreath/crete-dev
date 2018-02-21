@@ -6,7 +6,7 @@
 
 echo "  LLVMCC    bc_e1000.bc" && clang-3.4  \
     -c                                              \
-    -O2                                             \
+    -O0 -fno-inline                                 \
     -I.                                             \
     -Itcg                                           \
     -Itcg/tci                                       \
@@ -25,8 +25,6 @@ echo "  LLVMCC    bc_e1000.bc" && clang-3.4  \
     -emit-llvm                                      \
     hw/net/bc_e1000.c                               \
     -o bc_e1000.bc
-
-    # -O0 -fno-inline                                 \
 
 
 ### old flags

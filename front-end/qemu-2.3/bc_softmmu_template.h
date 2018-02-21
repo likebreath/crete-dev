@@ -117,10 +117,6 @@ WORD_TYPE helper_le_ld_name(CPUArchState *env, target_ulong addr, int mmu_idx,
 
     int is_device_access;
 
-    res = (DATA_TYPE)crete_try_device_memory_access(addr, DATA_SIZE, 0, 0, &is_device_access);
-    if(is_device_access)
-        return res;
-
     uint64_t dynamic_addr = crete_get_dynamic_addr(addr);
 
 #if DATA_SIZE == 1
@@ -128,6 +124,15 @@ WORD_TYPE helper_le_ld_name(CPUArchState *env, target_ulong addr, int mmu_idx,
 #else
     res = glue(glue(ld, LSUFFIX), _le_p)((uint8_t *)dynamic_addr);
 #endif
+
+    DATA_TYPE res_1;
+    res_1 = (DATA_TYPE)crete_try_device_memory_access(addr, DATA_SIZE, 0, 0, &is_device_access);
+    if(is_device_access)
+    {
+        assert(res_1 == res);
+        return res_1;
+    }
+
     return res;
 }
 
@@ -141,14 +146,23 @@ WORD_TYPE helper_be_ld_name(CPUArchState *env, target_ulong addr, int mmu_idx,
     DATA_TYPE res;
 
     int is_device_access;
-    res = (DATA_TYPE)crete_try_device_memory_access(addr, DATA_SIZE, 0, 0, &is_device_access);
-    if(is_device_access)
-        return res;
+//    res = (DATA_TYPE)crete_try_device_memory_access(addr, DATA_SIZE, 0, 0, &is_device_access);
+//    if(is_device_access)
+//        return res;
 
     // TODO: xxx BE (should not need to reverse the address,
     //               as long as it stay consistent wit memory monitoring)
     uint64_t dynamic_addr = crete_get_dynamic_addr(addr);
     res = glue(glue(ld, LSUFFIX), _be_p)((uint8_t *)dynamic_addr);
+
+    DATA_TYPE res_1;
+    res_1 = (DATA_TYPE)crete_try_device_memory_access(addr, DATA_SIZE, 0, 0, &is_device_access);
+    if(is_device_access)
+    {
+        assert(res_1 == res);
+        return res_1;
+    }
+
     return res;
 }
 #endif /* DATA_SIZE > 1 */
