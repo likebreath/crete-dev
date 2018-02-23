@@ -16,7 +16,7 @@ void crete_void_target_pid(void);
 void crete_send_custom_instr_dump(void);
 
 // For program under test
-void crete_make_concolic(void* addr, size_t size, const char* name);
+size_t crete_make_concolic(void* addr, size_t size, const char* name);
 #define crete_assume(cond)                      \
   crete_assume_begin();                         \
   crete_assume_(cond)

@@ -143,7 +143,15 @@ static inline void crete_custom_instr_pre_make_concolic()
     target_ulong guest_addr = g_cpuState_bct->regs[R_EAX];
     target_ulong size = g_cpuState_bct->regs[R_ECX];
 
-    runtime_env->handlecreteMakeConcolic(concolic_name, guest_addr, size);
+    uint32_t useful_data_size = runtime_env->handlecreteMakeConcolic(concolic_name, guest_addr, size);
+
+    // xxx: make sure sizeof(uint32_t) is no bigger than sizeof(size_t) on any platform
+    target_ulong guest_addr_useful_size = g_cpuState_bct->regs[R_EDX];
+    if(RuntimeEnv::access_guest_memory(g_cpuState_bct, guest_addr_useful_size,
+            (uint8_t *)&useful_data_size, sizeof(uint32_t), 1) != 0) {
+        cerr << "[CRETE ERROR] access_guest_memory() failed in crete_custom_instr_pre_make_concolic()\n";
+        assert(0);
+    }
 }
 
 // CRETE_INSTR_KERNEL_OOPS_VALUE

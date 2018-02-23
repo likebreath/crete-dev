@@ -18,6 +18,7 @@ namespace crete
         std::vector<uint8_t> name;
         uint32_t data_size;
         std::vector<uint8_t> data;
+        uint32_t useful_data_size;
 
         template <typename Archive>
         void serialize(Archive& ar, const unsigned int version)
@@ -28,6 +29,7 @@ namespace crete
             ar & name;
             ar & data_size;
             ar & data;
+            ar & useful_data_size;
         }
 
 #if !defined(CRETE_TC_COMPARE_H)

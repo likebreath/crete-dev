@@ -108,7 +108,8 @@ static void crete_send_concolic_name(const char* name) {
 // Send information from guest to VM, guest_addr, size, name and name size of concolic value, so that:
 // 1. Set the correct value of concolic variale from test case
 // 2. Enable taint-analysis on this concolic variable
-static void crete_pre_make_concolic(void* addr, size_t size, const char* name)
+// 3. Return the useful data size for trimming symbolic file to the right size
+static size_t crete_pre_make_concolic(void* addr, size_t size, const char* name)
 {
     // CRETE_INSTR_SEND_CONCOLIC_NAME must be sent before CRETE_INSTR_PRE_MAKE_CONCOLIC,
     // to satisfy the hanlder's order in qemu/runtime-dump/custom-instruction.cpp
@@ -116,10 +117,13 @@ static void crete_pre_make_concolic(void* addr, size_t size, const char* name)
 
     __crete_touch_buffer(addr, size);
 
+    volatile size_t useful_size = 0;
     __asm__ __volatile__(
             CRETE_INSTR_PRE_MAKE_CONCOLIC()
-        : : "a" (addr), "c" (size)
+            : : "a" (addr), "c" (size), "d" (&useful_size)
     );
+
+    return useful_size;
 }
 
 static char crete_check_target_pid(void)
@@ -134,7 +138,7 @@ static char crete_check_target_pid(void)
     return ret;
 }
 
-void crete_make_concolic(void* addr, size_t size, const char* name)
+size_t crete_make_concolic(void* addr, size_t size, const char* name)
 {
     if(!crete_check_target_pid())
         return;
@@ -144,8 +148,10 @@ void crete_make_concolic(void* addr, size_t size, const char* name)
     strncpy(concolic_name, name, copy_size);
     concolic_name[copy_size] = '\0';
 
-    crete_pre_make_concolic(addr, size, concolic_name);
+    size_t useful_size = crete_pre_make_concolic(addr, size, concolic_name);
     __crete_make_concolic_internal(addr, size, concolic_name);
+
+    return useful_size;
 }
 
 static void crete_kernel_oops(void)

@@ -359,7 +359,8 @@ void RuntimeEnv::addTBExecSequ(uint64_t index_captured_llvm_tb, uint64_t tb_pc)
 }
 
 // Set guest address in m_concolics, and write concrete data from m_concolics into qemu guest memory
-void RuntimeEnv::handlecreteMakeConcolic(string name, uint64_t guest_addr, uint64_t size)
+// @ret: useful data size, used for trim symbolic file to meaningful size
+uint32_t RuntimeEnv::handlecreteMakeConcolic(string name, uint64_t guest_addr, uint64_t size)
 {
     if(m_make_concolic_order.empty()) {
         init_concolics();
@@ -404,6 +405,7 @@ void RuntimeEnv::handlecreteMakeConcolic(string name, uint64_t guest_addr, uint6
         CreteMemoInfo concolic_memo;
         concolic_memo.m_addr = guest_addr;
         concolic_memo.m_size = size;
+        concolic_memo.m_useful_data_size = size;
         concolic_memo.m_name = name;
         concolic_memo.m_data = data;
         concolic_memo.m_addr_valid = true;
@@ -415,6 +417,9 @@ void RuntimeEnv::handlecreteMakeConcolic(string name, uint64_t guest_addr, uint6
     it = m_concolics.find(name);
     assert(it != m_concolics.end());
     crete_tci_crete_make_concolic(it->second.m_addr, it->second.m_size, it->second.m_data);
+    assert(it->second.m_useful_data_size <= it->second.m_size);
+
+    return it->second.m_useful_data_size;
 }
 
 // Generate output files for runtime environment
@@ -733,13 +738,14 @@ void RuntimeEnv::init_concolics()
         ++tc_iter)
     {
         uint32_t size = tc_iter->data_size;
+        uint32_t useful_size = tc_iter->useful_data_size;
         string name(tc_iter->name.begin(), tc_iter->name.end());
         vector<uint8_t> data = tc_iter->data;
 
         assert(size == data.size());
         assert(name.length() == tc_iter->name_size);
 
-        m_concolics.insert(make_pair(name, CreteMemoInfo(size, name, data)));
+        m_concolics.insert(make_pair(name, CreteMemoInfo(size, name, data, useful_size)));
     }
 
     m_trace_tag_explored = tc.get_traceTag_explored_nodes();
