@@ -117,7 +117,9 @@ static inline void crete_make_concolic_file(const config::File& file)
     memset(buffer, 0, file.size);
 
     fprintf(stderr, "crete_make_concolic()\n");
-    crete_make_concolic(buffer, file.size, filename.c_str());
+    size_t useful_size = crete_make_concolic(buffer, file.size, filename.c_str());
+    if(useful_size == 0)
+        useful_size = file.size;
 
     // write symbolic value to ramdisk file
     fprintf(stderr, "write symbolic value to ramdisk file\n");
@@ -128,7 +130,7 @@ static inline void crete_make_concolic_file(const config::File& file)
       throw runtime_error("failed to open file in preload for making concolic file\n");
     }
 
-    size_t out_result = fwrite(buffer, 1, file.size, out_fd);
+    size_t out_result = fwrite(buffer, 1, useful_size, out_fd);
 
     if(out_result != file.size) {
       throw runtime_error("wrong size of writing symbolic values in preload for making concolic file\n");

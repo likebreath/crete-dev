@@ -117,21 +117,22 @@ struct CreteMemoInfo
 {
     uint64_t m_addr;
     uint32_t m_size;
+    uint32_t m_useful_data_size;
     string m_name;
     vector<uint8_t> m_data;
     bool m_addr_valid;
 
     CreteMemoInfo(uint64_t addr, uint32_t size, vector<uint8_t> data)
-    :m_addr(addr), m_size(size), m_name("concreteMemo"),
+    :m_addr(addr), m_size(size), m_useful_data_size(size), m_name("concreteMemo"),
      m_data(data), m_addr_valid(true){}
 
-    CreteMemoInfo(uint32_t size, string name, vector<uint8_t> data)
-    :m_addr(0), m_size(size), m_name(name),
+    CreteMemoInfo(uint32_t size, string name, vector<uint8_t> data, uint32_t useful_size)
+    :m_addr(0), m_size(size), m_useful_data_size(useful_size), m_name(name),
      m_data(data), m_addr_valid(false) {}
 
     // For serialization
     CreteMemoInfo()
-    :m_addr(0), m_size(0), m_name(string()),
+    :m_addr(0), m_size(0), m_useful_data_size(0), m_name(string()),
      m_data(vector<uint8_t>()), m_addr_valid(false) {}
 
     template <class Archive>
@@ -139,6 +140,7 @@ struct CreteMemoInfo
     {
         ar & m_addr;
         ar & m_size;
+        ar & m_useful_data_size;
         ar & m_name;
         ar & m_data;
         ar & m_addr_valid;
@@ -370,7 +372,7 @@ public:
     void add_new_tb_pc(const uint64_t current_tb_pc);
 
     //Misc
-    void handlecreteMakeConcolic(string name, uint64_t guest_addr, uint64_t size);
+    uint32_t handlecreteMakeConcolic(string name, uint64_t guest_addr, uint64_t size);
 
     void writeRtEnvToFile();
     void verifyDumpData() const;
