@@ -97,6 +97,86 @@ namespace crete
         return ret;
     }
 
+    creteTraceTag_ty get_trace_tag_for_patch_tc(const TestCase &tc,
+            uint32_t tt_node_count,
+            uint32_t tt_node_br_count)
+    {
+        creteTraceTag_ty ret_tt;
+        ret_tt.reserve(tt_node_count);
+
+        const creteTraceTag_ty &tc_explored_nodes = tc.m_explored_nodes;
+        const creteTraceTag_ty &tc_semi_explored_node = tc.m_semi_explored_node;
+        const creteTraceTag_ty &tc_new_nodes = tc.m_new_nodes;
+
+        vector<bool> *last_node_br_taken;
+        uint32_t tt_node_count_to_apply;
+        bool tt_node_done = false;
+
+        // 1. Check with explored tt nodes
+        if(tt_node_count <= tc_explored_nodes.size())
+        {
+            tt_node_count_to_apply = tt_node_count;
+            tt_node_done = true;
+        } else {
+            tt_node_count_to_apply = tc_explored_nodes.size();
+        }
+
+        ret_tt.insert(ret_tt.end(), tc_explored_nodes.begin(),
+                tc_explored_nodes.begin() + tt_node_count_to_apply);
+        last_node_br_taken = &ret_tt.back().m_br_taken;
+
+        if(tt_node_done)
+        {
+            if(tt_node_br_count <= last_node_br_taken->size())
+            {
+                last_node_br_taken->resize(tt_node_br_count);
+
+                return ret_tt;
+            } else {
+                // special case for semi-explored node;
+                assert(tt_node_count == tc_explored_nodes.size());
+            }
+        }
+
+        // 2. Check with semi-explored nodes
+        if(!tc_semi_explored_node.empty())
+        {
+            assert(tc_semi_explored_node.size() == 1);
+            const vector<bool>& semi_explored_br_taken = tc_semi_explored_node.front().m_br_taken;
+
+            if(tt_node_done)
+            {
+                assert(tt_node_br_count > last_node_br_taken->size());
+                assert(tt_node_br_count <= (last_node_br_taken->size() + semi_explored_br_taken.size()));
+                last_node_br_taken->insert(last_node_br_taken->end(),
+                        semi_explored_br_taken.begin(),
+                        semi_explored_br_taken.begin() +
+                        (tt_node_br_count - last_node_br_taken->size()));
+
+                return ret_tt;
+            } else {
+                last_node_br_taken->insert(last_node_br_taken->end(),
+                        semi_explored_br_taken.begin(),
+                        semi_explored_br_taken.end());
+            }
+        }
+
+        // 3. Check with new_tt_node
+        assert(!tt_node_done);
+        assert(tt_node_count > tc_explored_nodes.size());
+        assert(tt_node_count <= (tc_explored_nodes.size() + tc_new_nodes.size()));
+
+        tt_node_count_to_apply = tt_node_count - tc_explored_nodes.size();
+        ret_tt.insert(ret_tt.end(), tc_new_nodes.begin(),
+                tc_new_nodes.begin() + tt_node_count_to_apply);
+
+        last_node_br_taken = &ret_tt.back().m_br_taken;
+        assert(tt_node_br_count <= last_node_br_taken->size());
+        last_node_br_taken->resize(tt_node_br_count);
+
+        return ret_tt;
+    }
+
     TestCase generate_complete_tc_from_patch(const TestCase& patch, const TestCase& base)
     {
         if(!patch.m_patch)
@@ -149,50 +229,23 @@ namespace crete
         }
 
         // Apply patch for trace-tag
-        uint32_t negate_tt_index = patch.m_tcp_tt.first;
-        uint32_t negate_tt_node_br_index = patch.m_tcp_tt.second;
+        uint32_t negate_tt_count= patch.m_tcp_tt.first + 1;
+        uint32_t negate_tt_node_br_count = patch.m_tcp_tt.second + 1;
 
-        // For semi-explored case
-        if(negate_tt_index == (ret.m_explored_nodes.size() - 1))
-        {
-            vector<bool>& last_node_br_taken = ret.m_explored_nodes.back().m_br_taken;
-            const vector<bool>& semi_explored_br_taken = ret.m_semi_explored_node.front().m_br_taken;
+        ret.m_explored_nodes = get_trace_tag_for_patch_tc(ret,
+                negate_tt_count, negate_tt_node_br_count);
+        assert(ret.m_explored_nodes.size() == negate_tt_count );
+        assert(ret.m_explored_nodes.back().m_br_taken.size() == negate_tt_node_br_count);
 
-            assert(!ret.m_semi_explored_node.empty());
-            assert(negate_tt_node_br_index >= last_node_br_taken.size());
-            assert(negate_tt_node_br_index < (last_node_br_taken.size() + semi_explored_br_taken.size()));
-
-            last_node_br_taken.insert(last_node_br_taken.end(),
-                    semi_explored_br_taken.begin(),
-                    semi_explored_br_taken.begin() +
-                    (negate_tt_node_br_index - last_node_br_taken.size()) + 1);
-
-            // Only negate branch when the tc is for a branch from captured instructions
-            if(patch.m_from_captured_br){
-                last_node_br_taken.back() = !last_node_br_taken.back();
-            }
-        } else {
-            assert(negate_tt_index >=  ret.m_explored_nodes.size());
-            assert(negate_tt_index < (ret.m_explored_nodes.size() + ret.m_new_nodes.size()) );
-
-            ret.m_explored_nodes.insert(ret.m_explored_nodes.end(),
-                    ret.m_new_nodes.begin(),
-                    ret.m_new_nodes.begin() + (negate_tt_index - ret.m_explored_nodes.size()) + 1);
-
-            vector<bool>& last_node_br_taken = ret.m_explored_nodes.back().m_br_taken;
-            assert(negate_tt_node_br_index < last_node_br_taken.size());
-            last_node_br_taken.resize(negate_tt_node_br_index + 1);
-
-            // Only negate branch when the tc is for a branch from captured instructions
-            if(patch.m_from_captured_br){
-                last_node_br_taken.back() = !last_node_br_taken.back();
-            }
-        }
-
-        assert(ret.m_explored_nodes.size() == (negate_tt_index + 1) );
-        assert(ret.m_explored_nodes.back().m_br_taken.size() == (negate_tt_node_br_index + 1) );
         ret.m_semi_explored_node.clear();
         ret.m_new_nodes.clear();
+
+        // Only negate branch when the tc is for a branch from captured instructions
+        if(patch.m_from_captured_br)
+        {
+            ret.m_explored_nodes.back().m_br_taken.back() =
+                    !ret.m_explored_nodes.back().m_br_taken.back();
+        }
 
         return ret;
     }

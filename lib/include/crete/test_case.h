@@ -112,6 +112,7 @@ namespace crete
         friend bool check_tc_elems_meaningfulness(TestCase &tc);
         friend TestCase generate_complete_tc_from_patch(const TestCase& patch, const TestCase& base);
         friend std::ostream& operator<<(std::ostream& os, const TestCase& tc);
+        friend creteTraceTag_ty get_trace_tag_for_patch_tc(const TestCase&, uint32_t, uint32_t);
 
         template <typename Archive>
         void serialize(Archive& ar, const unsigned int version)
