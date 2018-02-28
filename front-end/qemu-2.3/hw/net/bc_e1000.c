@@ -37,6 +37,9 @@
 
 #include "e1000_regs.h"
 
+extern int crete_dma_read(dma_addr_t addr, void *buf, dma_addr_t len);
+extern int crete_dma_write(void);
+
 #define E1000_DEBUG
 
 #ifdef E1000_DEBUG
@@ -626,7 +629,7 @@ xmit_seg(E1000State *s)
 static void
 process_tx_desc(E1000State *s, struct e1000_tx_desc *dp)
 {
-    PCIDevice *d = PCI_DEVICE(s);
+//    PCIDevice *d = PCI_DEVICE(s);
     uint32_t txd_lower = le32_to_cpu(dp->lower.data);
     uint32_t dtype = txd_lower & (E1000_TXD_CMD_DEXT | E1000_TXD_DTYP_D);
     unsigned int split_size = txd_lower & 0xffff, bytes, sz, op;
@@ -685,7 +688,8 @@ process_tx_desc(E1000State *s, struct e1000_tx_desc *dp)
                 bytes = msh - tp->size;
 
             bytes = MIN(sizeof(tp->data) - tp->size, bytes);
-            pci_dma_read(d, addr, tp->data + tp->size, bytes);
+//            pci_dma_read(d, addr, tp->data + tp->size, bytes);
+            crete_dma_read(addr, tp->data + tp->size, bytes);
             sz = tp->size + bytes;
             if (sz >= tp->hdr_len && tp->size < tp->hdr_len) {
                 memmove(tp->header, tp->data, tp->hdr_len);
@@ -703,7 +707,8 @@ process_tx_desc(E1000State *s, struct e1000_tx_desc *dp)
         DBGOUT(TXERR, "TCP segmentation error\n");
     } else {
         split_size = MIN(sizeof(tp->data) - tp->size, split_size);
-        pci_dma_read(d, addr, tp->data + tp->size, split_size);
+//        pci_dma_read(d, addr, tp->data + tp->size, split_size);
+        crete_dma_read(addr, tp->data + tp->size, split_size);
         tp->size += split_size;
     }
 
@@ -722,7 +727,7 @@ process_tx_desc(E1000State *s, struct e1000_tx_desc *dp)
 static uint32_t
 txdesc_writeback(E1000State *s, dma_addr_t base, struct e1000_tx_desc *dp)
 {
-    PCIDevice *d = PCI_DEVICE(s);
+//    PCIDevice *d = PCI_DEVICE(s);
     uint32_t txd_upper, txd_lower = le32_to_cpu(dp->lower.data);
 
     if (!(txd_lower & (E1000_TXD_CMD_RS|E1000_TXD_CMD_RPS)))
@@ -730,8 +735,9 @@ txdesc_writeback(E1000State *s, dma_addr_t base, struct e1000_tx_desc *dp)
     txd_upper = (le32_to_cpu(dp->upper.data) | E1000_TXD_STAT_DD) &
                 ~(E1000_TXD_STAT_EC | E1000_TXD_STAT_LC | E1000_TXD_STAT_TU);
     dp->upper.data = cpu_to_le32(txd_upper);
-    pci_dma_write(d, base + ((char *)&dp->upper - (char *)dp),
-                  &dp->upper, sizeof(dp->upper));
+//    pci_dma_write(d, base + ((char *)&dp->upper - (char *)dp),
+//                  &dp->upper, sizeof(dp->upper));
+    crete_dma_write();
     return E1000_ICR_TXDW;
 }
 
@@ -746,7 +752,7 @@ static uint64_t tx_desc_base(E1000State *s)
 static void
 start_xmit(E1000State *s)
 {
-    PCIDevice *d = PCI_DEVICE(s);
+//    PCIDevice *d = PCI_DEVICE(s);
     dma_addr_t base;
     struct e1000_tx_desc desc;
     uint32_t tdh_start = s->mac_reg[TDH], cause = E1000_ICS_TXQE;
@@ -759,7 +765,8 @@ start_xmit(E1000State *s)
     while (s->mac_reg[TDH] != s->mac_reg[TDT]) {
         base = tx_desc_base(s) +
                sizeof(struct e1000_tx_desc) * s->mac_reg[TDH];
-        pci_dma_read(d, base, &desc, sizeof(desc));
+//        pci_dma_read(d, base, &desc, sizeof(desc));
+        crete_dma_read(base, &desc, sizeof(desc));
 
         DBGOUT(TX, "index %d: %p : %x %x\n", s->mac_reg[TDH],
                (void *)(intptr_t)desc.buffer_addr, desc.lower.data,
@@ -873,7 +880,7 @@ static ssize_t
 e1000_receive_iov(NetClientState *nc, const struct iovec *iov, int iovcnt)
 {
     E1000State *s = qemu_get_nic_opaque(nc);
-    PCIDevice *d = PCI_DEVICE(s);
+//    PCIDevice *d = PCI_DEVICE(s);
     struct e1000_rx_desc desc;
     dma_addr_t base;
     unsigned int n, rdt;
@@ -953,7 +960,8 @@ e1000_receive_iov(NetClientState *nc, const struct iovec *iov, int iovcnt)
             desc_size = s->rxbuf_size;
         }
         base = rx_desc_base(s) + sizeof(desc) * s->mac_reg[RDH];
-        pci_dma_read(d, base, &desc, sizeof(desc));
+//        pci_dma_read(d, base, &desc, sizeof(desc));
+        crete_dma_read(base, &desc, sizeof(desc));
         desc.special = vlan_special;
         desc.status |= (vlan_status | E1000_RXD_STAT_DD);
         if (desc.buffer_addr) {
@@ -966,7 +974,8 @@ e1000_receive_iov(NetClientState *nc, const struct iovec *iov, int iovcnt)
                 }
                 do {
                     iov_copy = MIN(copy_size, iov->iov_len - iov_ofs);
-                    pci_dma_write(d, ba, iov->iov_base + iov_ofs, iov_copy);
+//                    pci_dma_write(d, ba, iov->iov_base + iov_ofs, iov_copy);
+                    crete_dma_write();
                     copy_size -= iov_copy;
                     ba += iov_copy;
                     iov_ofs += iov_copy;
@@ -988,7 +997,8 @@ e1000_receive_iov(NetClientState *nc, const struct iovec *iov, int iovcnt)
         } else { // as per intel docs; skip descriptors with null buf addr
             DBGOUT(RX, "Null RX descriptor!!\n");
         }
-        pci_dma_write(d, base, &desc, sizeof(desc));
+//        pci_dma_write(d, base, &desc, sizeof(desc));
+        crete_dma_write();
 
         if (++s->mac_reg[RDH] * sizeof(desc) >= s->mac_reg[RDLEN])
             s->mac_reg[RDH] = 0;
