@@ -210,8 +210,8 @@ typedef vector<debug_memoSyncTable_ty> debug_memoSyncTables_ty;
 // vector<>: contents
 typedef pair<bool, vector<CPUStateElement> > cpuStateSyncTable_ty;
 
-typedef CPUStateElement E1000StateElement;
-typedef cpuStateSyncTable_ty e1000StateSyncTable_ty;
+typedef CPUStateElement VDStateElement;
+typedef cpuStateSyncTable_ty VDStateSyncTable_ty;
 
 typedef pair<QemuInterruptInfo, bool> interruptState_ty;
 
@@ -249,11 +249,11 @@ private:
     // The CPUState after each interested TB being executed for cross checking on klee side
     vector<cpuStateSyncTable_ty> m_debug_cpuStateSyncTables;
 
-    // - E1000 State
-    vector<uint8_t> m_initial_e1000State;
-    vector<e1000StateSyncTable_ty> m_e1000StateSyncTables;
-    void *m_e1000State_post_insterest;
-    void *m_e1000State_pre_interest;
+    // - VD State
+    vector<uint8_t> m_initial_VDState;
+    vector<VDStateSyncTable_ty> m_VDStateSyncTables;
+    void *m_VDState_post_insterest;
+    void *m_VDState_pre_interest;
 
     memoSyncTables_ty m_memoSyncTables;
     memoSyncTable_ty m_currentMemoSyncTable;
@@ -339,8 +339,8 @@ public:
 
     void addHardwareStateSyncTable();
     void addEmptyHardwareStateSyncTable();
-    void setHardwareStatePostInterest(const void *cpustate, const void *e1000State);
-    void setHardwareStatePreInterest(const void *cpustate, const void *e1000State);
+    void setHardwareStatePostInterest(const void *cpustate, const void *VDState);
+    void setHardwareStatePreInterest(const void *cpustate, const void *VDState);
     void setFlagHardwareStatePostInterest();
     void resetFlagHardwareStatePreInterest();
 

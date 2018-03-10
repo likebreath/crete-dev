@@ -37,13 +37,13 @@
 
 #include "e1000_regs.h"
 
-#if defined(CRETE_CONFIG) || 1
+#if defined(CRETE_VD_E1000)
 #include "runtime-dump/crete-debug.h"
 
-void *crete_e1000_instance = NULL;
+void *crete_vd_instance = NULL;
 
-uint64_t crete_get_e1000State_size(void);
-bool crete_get_e1000State_offset(const char *field, uint64_t *offset, uint64_t *size);
+uint64_t crete_get_VDState_size(void);
+bool crete_get_VDState_offset(const char *field, uint64_t *offset, uint64_t *size);
 #endif
 
 #define E1000_DEBUG
@@ -724,7 +724,7 @@ process_tx_desc(E1000State *s, struct e1000_tx_desc *dp)
         stw_be_p(tp->vlan_header + 2,
                       le16_to_cpu(dp->upper.fields.special));
     }
-        
+
     addr = le64_to_cpu(dp->buffer_addr);
     if (tp->tse && tp->cptse) {
         msh = tp->hdr_len + tp->mss;
@@ -1255,12 +1255,13 @@ static void
 e1000_mmio_write(void *opaque, hwaddr addr, uint64_t val,
                  unsigned size)
 {
+#if defined(CRETE_VD_E1000)
     CRETE_DBG_VDT(
     fprintf(stderr, "[CRETE_DBG_VDT] e1000_mmio_write(): hwaddr = %p, val = %lu, size = %u\n",
             (void *)addr, val, size);
     );
-#if defined(CRETE_CONFIG) || 1
-    assert(crete_e1000_instance == opaque);
+
+    assert(crete_vd_instance == opaque);
 #endif
 
     E1000State *s = opaque;
@@ -1279,12 +1280,12 @@ e1000_mmio_write(void *opaque, hwaddr addr, uint64_t val,
 static uint64_t
 e1000_mmio_read(void *opaque, hwaddr addr, unsigned size)
 {
+#if defined(CRETE_VD_E1000)
     CRETE_DBG_VDT(
     fprintf(stderr, "[CRETE_DBG_VDT] e1000_mmio_read()\n");
     );
 
-#if defined(CRETE_CONFIG) || 1
-    assert(crete_e1000_instance == opaque);
+    assert(crete_vd_instance == opaque);
 #endif
 
     E1000State *s = opaque;
@@ -1658,10 +1659,10 @@ static void e1000_instance_init(Object *obj)
     device_add_bootindex_property(obj, &n->conf.bootindex,
                                   "bootindex", "/ethernet-phy@0",
                                   DEVICE(n), NULL);
-#if defined(CRETE_CONFIG) || 1
-    if(!crete_e1000_instance)
+#if defined(CRETE_VD_E1000)
+    if(!crete_vd_instance)
     {
-        crete_e1000_instance = n;
+        crete_vd_instance = n;
     }
 #endif
 }
@@ -1723,7 +1724,7 @@ static void e1000_register_types(void)
 
 type_init(e1000_register_types)
 
-#if defined(CRETE_COFNIG) || 1
+#if defined(CRETE_VD_E1000)
 const uint64_t crete_vd_trace_accessor[] = {
         (uint64_t)e1000_mmio_write,
         (uint64_t)e1000_mmio_read,
@@ -1743,12 +1744,12 @@ const uint64_t crete_vd_trace_accessor[] = {
             return 1;                               \
         }
 
-uint64_t crete_get_e1000State_size(void)
+uint64_t crete_get_VDState_size(void)
 {
     return sizeof(E1000State);
 }
 
-bool crete_get_e1000State_offset(const char *field, uint64_t *offset, uint64_t *size)
+bool crete_get_VDState_offset(const char *field, uint64_t *offset, uint64_t *size)
 {
     // typedef struct E1000State_st {
 

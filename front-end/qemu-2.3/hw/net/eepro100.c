@@ -49,6 +49,15 @@
 #include "sysemu/dma.h"
 #include "qemu/bitops.h"
 
+#if defined(CRETE_VD_EEPRO100)
+#include "runtime-dump/crete-debug.h"
+
+void *crete_vd_instance = NULL;
+
+uint64_t crete_get_VDState_size(void);
+bool crete_get_VDState_offset(const char *field, uint64_t *offset, uint64_t *size);
+#endif
+
 /* QEMU sends frames smaller than 60 bytes to ethernet nics.
  * Such frames are rejected by real nics and their emulations.
  * To avoid this behaviour, other nic emulations pad received
@@ -1581,6 +1590,10 @@ static void eepro100_write4(EEPRO100State * s, uint32_t addr, uint32_t val)
 static uint64_t eepro100_read(void *opaque, hwaddr addr,
                               unsigned size)
 {
+#if defined(CRETE_VD_EEPRO100)
+    assert(crete_vd_instance == opaque);
+#endif
+
     EEPRO100State *s = opaque;
 
     switch (size) {
@@ -1594,6 +1607,10 @@ static uint64_t eepro100_read(void *opaque, hwaddr addr,
 static void eepro100_write(void *opaque, hwaddr addr,
                            uint64_t data, unsigned size)
 {
+#if defined(CRETE_VD_EEPRO100)
+    assert(crete_vd_instance == opaque);
+#endif
+
     EEPRO100State *s = opaque;
 
     switch (size) {
@@ -1900,6 +1917,13 @@ static void eepro100_instance_init(Object *obj)
     device_add_bootindex_property(obj, &s->conf.bootindex,
                                   "bootindex", "/ethernet-phy@0",
                                   DEVICE(s), NULL);
+
+#if defined(CRETE_VD_EEPRO100)
+    if(!crete_vd_instance)
+    {
+        crete_vd_instance = s;
+    }
+#endif
 }
 
 static E100PCIDeviceInfo e100_devices[] = {
@@ -2107,3 +2131,95 @@ static void eepro100_register_types(void)
 }
 
 type_init(eepro100_register_types)
+
+
+#if defined(CRETE_VD_EEPRO100)
+const uint64_t crete_vd_trace_accessor[] = {
+        (uint64_t)eepro100_read,
+        (uint64_t)eepro100_write,
+        0
+};
+
+#define VDState_OFFSET(field) offsetof(EEPRO100State, field)
+
+#define ___GET_VDSTATE_OFFSET(type, ref_field)   \
+        if(!strcmp(field, #ref_field))           \
+        {                                        \
+            *offset = VDState_OFFSET(ref_field); \
+            *size = sizeof(type);                \
+            return 1;                            \
+        }
+
+#if !(PCI_MEM_SIZE == 4*1024)
+#error [ERROR] CRETE_VD_EEPRO100: check PCI_MEM_SIZE and adjust 'compuate_side_effect_EEPRO100State()'
+#endif
+uint64_t crete_get_VDState_size(void)
+{
+    return sizeof(EEPRO100State);
+}
+
+bool crete_get_VDState_offset(const char *field, uint64_t *offset, uint64_t *size)
+{
+    // typedef struct {
+    //     PCIDevice dev;
+    ___GET_VDSTATE_OFFSET(PCIDevice, dev);
+
+    //     uint8_t mult[8];
+        ___GET_VDSTATE_OFFSET(uint8_t, mult);
+    //     MemoryRegion mmio_bar;
+        ___GET_VDSTATE_OFFSET(MemoryRegion, mmio_bar);
+    //     MemoryRegion io_bar;
+        ___GET_VDSTATE_OFFSET(MemoryRegion, io_bar);
+    //     MemoryRegion flash_bar;
+        ___GET_VDSTATE_OFFSET(MemoryRegion, flash_bar);
+    //     NICState *nic;
+        ___GET_VDSTATE_OFFSET(NICState *, nic);
+    //     NICConf conf;
+        ___GET_VDSTATE_OFFSET(NICConf, conf);
+    //     uint8_t scb_stat;
+        ___GET_VDSTATE_OFFSET(uint8_t, scb_stat);
+    //     uint8_t int_stat;
+        ___GET_VDSTATE_OFFSET(uint8_t, int_stat);
+
+    //     uint16_t mdimem[32];
+        ___GET_VDSTATE_OFFSET(uint16_t, mdimem);
+    //     eeprom_t *eeprom;
+        ___GET_VDSTATE_OFFSET(eeprom_t *, eeprom);
+    //     uint32_t device;
+        ___GET_VDSTATE_OFFSET(uint32_t, device);
+    //     uint32_t cu_base;
+        ___GET_VDSTATE_OFFSET(uint32_t, cu_base);
+    //     uint32_t cu_offset;
+        ___GET_VDSTATE_OFFSET(uint32_t, cu_offset);
+    //     uint32_t ru_base;
+        ___GET_VDSTATE_OFFSET(uint32_t, ru_base);
+    //     uint32_t ru_offset;
+        ___GET_VDSTATE_OFFSET(uint32_t, ru_offset);
+    //     uint32_t statsaddr;
+        ___GET_VDSTATE_OFFSET(uint32_t, statsaddr);
+    //     eepro100_tx_t tx;
+        ___GET_VDSTATE_OFFSET(eepro100_tx_t, tx);
+    //     uint32_t cb_address;
+        ___GET_VDSTATE_OFFSET(uint32_t, cb_address);
+
+    //     eepro100_stats_t statistics;
+        ___GET_VDSTATE_OFFSET(eepro100_stats_t, statistics);
+
+    //     uint8_t mem[PCI_MEM_SIZE] __attribute__((aligned(8)));
+        ___GET_VDSTATE_OFFSET(uint8_t, mem);
+
+    //     uint8_t configuration[22];
+        ___GET_VDSTATE_OFFSET(uint8_t, configuration);
+
+    //     VMStateDescription *vmstate;
+        ___GET_VDSTATE_OFFSET(VMStateDescription *, vmstate);
+
+    //     uint16_t stats_size;
+        ___GET_VDSTATE_OFFSET(uint16_t, stats_size);
+    //     bool has_extended_tcb_support;
+        ___GET_VDSTATE_OFFSET(bool, has_extended_tcb_support);
+    // } EEPRO100State;
+
+    return 0;
+}
+#endif
