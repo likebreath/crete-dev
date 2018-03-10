@@ -60,6 +60,12 @@ void dump_memo_sync_table_entry(struct RuntimeEnv *rt, uint64_t addr,
 void crete_add_vd_trace_marker_op_index(uint64_t vaddr, uint64_t physaddr,
         uint32_t size, uint64_t value, int is_write, uint64_t accessor);
 
+void crete_set_vd_port_io_info(uint64_t opc_addr, uint64_t xlated_addr,
+        uint64_t ptr_mr_ops);
+void crete_get_vd_port_io_info(uint64_t *opc_addr, uint64_t *xlated_addr,
+        uint64_t *ptr_mr_ops);
+void crete_add_vd_port_io_ops(uint32_t port, uint32_t size, uint64_t data, int is_write);
+
 void crete_handle_raise_interrupt(void *env, int intno,
         int is_int, int error_code, int next_eip_addend);
 void crete_handle_do_interrupt_all(void *qemuCPUState, int intno,

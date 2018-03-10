@@ -56,6 +56,9 @@
 
 #include "qemu/range.h"
 
+#if defined(CRETE_CONFIG) || 1
+#include "runtime-dump/runtime-dump.h"
+#endif
 //#define DEBUG_SUBPAGE
 
 #if !defined(CONFIG_USER_ONLY)
@@ -2388,6 +2391,19 @@ bool address_space_rw(AddressSpace *as, hwaddr addr, uint8_t *buf,
                 memcpy(buf, ptr, l);
             }
         }
+#if defined(CRETE_CONFIG) || 1
+        if(flag_rt_dump_enable)
+        {
+            assert(len == l);
+            if(is_write)
+            {
+                crete_set_vd_port_io_info(addr, addr1, (uint64_t)mr->ops->write);
+            } else {
+                crete_set_vd_port_io_info(addr, addr1, (uint64_t)mr->ops->read);
+            }
+        }
+#endif
+
         len -= l;
         buf += l;
         addr += l;

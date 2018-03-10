@@ -32,31 +32,73 @@ extern CPUArchState *g_cpuState_bct;
 void helper_outb(uint32_t port, uint32_t data)
 {
     cpu_outb(port, data & 0xff);
+
+#if defined(CRETE_CONFIG) || 1
+    if(flag_rt_dump_enable) {
+        crete_add_vd_port_io_ops(port, 1, data, 1);
+    }
+#endif
 }
 
 target_ulong helper_inb(uint32_t port)
 {
-    return cpu_inb(port);
+    target_ulong ret = cpu_inb(port);
+
+#if defined(CRETE_CONFIG) || 1
+    if(flag_rt_dump_enable) {
+        crete_add_vd_port_io_ops(port, 1, ret, 0);
+    }
+#endif
+
+    return ret;
 }
 
 void helper_outw(uint32_t port, uint32_t data)
 {
     cpu_outw(port, data & 0xffff);
+
+#if defined(CRETE_CONFIG) || 1
+    if(flag_rt_dump_enable) {
+        crete_add_vd_port_io_ops(port, 2, data & 0xffff, 1);
+    }
+#endif
 }
 
 target_ulong helper_inw(uint32_t port)
 {
-    return cpu_inw(port);
+    target_ulong ret = cpu_inw(port);
+
+#if defined(CRETE_CONFIG) || 1
+    if(flag_rt_dump_enable) {
+        crete_add_vd_port_io_ops(port, 2, ret, 0);
+    }
+#endif
+
+    return ret;
 }
 
 void helper_outl(uint32_t port, uint32_t data)
 {
     cpu_outl(port, data);
+
+#if defined(CRETE_CONFIG) || 1
+    if(flag_rt_dump_enable) {
+        crete_add_vd_port_io_ops(port, 4, data, 1);
+    }
+#endif
 }
 
 target_ulong helper_inl(uint32_t port)
 {
-    return cpu_inl(port);
+    target_ulong ret = cpu_inl(port);
+
+#if defined(CRETE_CONFIG) || 1
+    if(flag_rt_dump_enable) {
+        crete_add_vd_port_io_ops(port, 4, ret, 0);
+    }
+#endif
+
+    return ret;
 }
 
 void helper_into(CPUX86State *env, int next_eip_addend)

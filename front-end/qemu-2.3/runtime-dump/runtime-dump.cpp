@@ -88,6 +88,43 @@ void qklee_add_drive_trace_marker(const vector<uint32_t>& index)
     return;
 }
 
+struct QemuVDPortIOInfo {
+    uint64_t opc_addr;
+    uint64_t xlated_addr;
+    uint64_t ptr_mr_ops;
+    bool valid;
+};
+
+static struct QemuVDPortIOInfo crete_vd_port_io_info;
+
+void crete_set_vd_port_io_info(uint64_t opc_addr, uint64_t xlated_addr, uint64_t ptr_mr_ops)
+{
+    crete_vd_port_io_info.opc_addr = opc_addr;
+    crete_vd_port_io_info.xlated_addr = xlated_addr;
+    crete_vd_port_io_info.ptr_mr_ops = ptr_mr_ops;
+
+    crete_vd_port_io_info.valid = true;
+}
+
+void crete_get_vd_port_io_info(uint64_t *opc_addr, uint64_t *xlated_addr, uint64_t *ptr_mr_ops)
+{
+    assert(crete_vd_port_io_info.valid);
+    *opc_addr = crete_vd_port_io_info.opc_addr;
+    *xlated_addr = crete_vd_port_io_info.xlated_addr;
+    *ptr_mr_ops = crete_vd_port_io_info.ptr_mr_ops;
+
+    crete_vd_port_io_info.valid = false;
+}
+
+void crete_add_vd_port_io_ops(uint32_t port, uint32_t size, uint64_t data, int is_write)
+{
+    assert(crete_vd_port_io_info.valid);
+    assert(port == crete_vd_port_io_info.opc_addr);
+
+    crete_add_vd_trace_marker_op_index(crete_vd_port_io_info.opc_addr, crete_vd_port_io_info.xlated_addr,
+            size, data, is_write, crete_vd_port_io_info.ptr_mr_ops);
+}
+
 // Interface for Virtual Device Trace
 class VirtualDeviceTraceMarker
 {

@@ -10,6 +10,7 @@
 #include "bc_int_helper.c"
 #include "bc_fpu_helper.c"
 #include "bc_excp_helper.c"
+#include "bc_misc_helper.c"
 #include "../bc_tcg-runtime.c"
 
 /* list of files related to bit-cde
