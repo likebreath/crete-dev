@@ -1221,15 +1221,15 @@ e1000_mmio_read(void *opaque, hwaddr addr, unsigned size)
 //static uint64_t
 //e1000_mmio_read(void *opaque, hwaddr addr, unsigned size)
 
-extern char crete_e1000_state[sizeof(E1000State)];
+extern char crete_vd_state[sizeof(E1000State)];
 
 uint64_t dispatch_vd_op(uint64_t v_addr, uint64_t p_addr, int size, uint64_t value, int is_write)
 {
     if(is_write)
     {
-        e1000_mmio_write(crete_e1000_state, p_addr, value, size);
+        e1000_mmio_write(crete_vd_state, p_addr, value, size);
         return 0;
     } else {
-        return e1000_mmio_read(crete_e1000_state, p_addr, size);
+        return e1000_mmio_read(crete_vd_state, p_addr, size);
     }
 }

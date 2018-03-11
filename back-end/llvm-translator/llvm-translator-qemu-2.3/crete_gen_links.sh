@@ -1,9 +1,10 @@
 # !bin/bash
+set -o errexit
 
 CRETE_BINARY_DIR=$1
+CRETE_TARGET_VD=$2
 
-
-./make_op_helper_bc.sh
+./make_op_helper_bc.sh $2
 
 ln -sf `pwd`/bc_crete_ops.bc $CRETE_BINARY_DIR/bin/bc_crete_ops.bc
 

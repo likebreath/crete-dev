@@ -79,8 +79,6 @@ struct VirtualDeviceOps
 const struct VirtualDeviceOps *vd_ops_table;
 uint32_t vd_ops_table_size;
 
-// uint64_t e1000_mmio_read(void *opaque, hwaddr addr, unsigned size);
-
 static const struct VirtualDeviceOps *get_current_vd_op(uint64_t addr)
 {
     const struct VirtualDeviceOps *current_vd_op;
@@ -127,11 +125,11 @@ uint64_t crete_try_device_memory_access(uint64_t addr, int size, uint64_t value,
     return dispatch_vd_op(addr, current_vd_op->m_phys_addr, size, value, is_write);
 }
 
-typedef struct CPUStateElement E1000StateElement;
-void crete_sync_e1000_state(uint8_t *e1000_state, uint32_t es_size,
-        const E1000StateElement *sync_table, uint32_t st_size)
+typedef struct CPUStateElement VDStateElement;
+void crete_sync_vd_state(uint8_t *vd_state, uint32_t es_size,
+        const VDStateElement *sync_table, uint32_t st_size)
 {
     crete_disable_fork();
-    internal_sync_cpu_state(e1000_state, es_size, sync_table, st_size);
+    internal_sync_cpu_state(vd_state, es_size, sync_table, st_size);
     crete_enable_fork();
 }

@@ -126,8 +126,8 @@ struct CPUStateElement{
 
 typedef pair<bool, vector<CPUStateElement> > cpuStateSyncTable_ty;
 
-typedef CPUStateElement E1000StateElement;
-typedef cpuStateSyncTable_ty e1000StateSyncTable_ty;
+typedef CPUStateElement VDStateElement;
+typedef cpuStateSyncTable_ty VDStateSyncTable_ty;
 
 typedef vector<pair<uint64_t, uint8_t> > memoSyncTable_ty;
 
@@ -269,7 +269,7 @@ public:
 
     void generate_crete_main();
     GlobalVariable* generate_crete_init_cpuState();
-    void generate_crete_init_e1000State();
+    void generate_crete_init_VDState();
     void generate_crete_tb_prologue(uint64_t tb_count, uint64_t tb_pc, GlobalVariable *crete_cpu_state);
 
     void crete_generate_llvm_cpuStateSyncTables(const string& input_file_name);
@@ -281,8 +281,8 @@ public:
     void generate_llvm_DeviceSyncTables(const string& input_file_name);
     void generate_llvm_DeviceSyncTable(const creteVDTable_ty& memost);
 
-    void crete_generate_llvm_e1000StateSyncTables(const string& input_file_name);
-    void crete_generate_llvm_e1000StateSyncTable(const e1000StateSyncTable_ty& csst);
+    void crete_generate_llvm_VDStateSyncTables(const string& input_file_name);
+    void crete_generate_llvm_VDStateSyncTable(const VDStateSyncTable_ty& csst);
 
 private:
     map<uint64_t, string> m_crete_helper_names;
@@ -294,7 +294,7 @@ private:
     vector<pair<uint64_t, GlobalVariable *> > m_cpuState_sync_globals;
     vector<pair<uint64_t, GlobalVariable *> > m_memory_sync_globals;
 
-    vector<pair<uint64_t, GlobalVariable *> > m_e1000State_sync_globals;
+    vector<pair<uint64_t, GlobalVariable *> > m_vdState_sync_globals;
     vector<pair<uint64_t, GlobalVariable *> > m_device_access_globals;
 };
 
@@ -1513,14 +1513,14 @@ void TCGLLVMContextPrivate::generate_crete_main()
     if(m_tbExecSequ.size() != m_cpuState_sync_globals.size() ||
             m_tbExecSequ.size() != m_memory_sync_globals.size() ||
             m_tbExecSequ.size() != m_device_access_globals.size() ||
-            m_tbExecSequ.size() != m_e1000State_sync_globals.size())
+            m_tbExecSequ.size() != m_vdState_sync_globals.size())
     {
         BOOST_THROW_EXCEPTION(std::runtime_error("[Crete Error] m_tbExecSequ.size() != m_cpuState_sync_globals.size()/m_memory_sync_globals.size()"));
     }
 
     // 0. Construct initial cpu state in llvm bc
     GlobalVariable* crete_cpu_state = generate_crete_init_cpuState();
-    generate_crete_init_e1000State();
+    generate_crete_init_VDState();
 
     {
         // 1. Construct main function in llvm bc
@@ -1646,30 +1646,30 @@ GlobalVariable* TCGLLVMContextPrivate::generate_crete_init_cpuState()
     return gvar_array_init_cpuState;
 }
 
-void TCGLLVMContextPrivate::generate_crete_init_e1000State()
+void TCGLLVMContextPrivate::generate_crete_init_VDState()
 {
-    // 1. Get initial e1000State from file
-    ifstream i_sm("dump_initial_e1000State.bin", ios_base::binary);
-    assert(i_sm && "open file failed: dump_initial_e1000State.bin\n");;
+    // 1. Get initial VDState from file
+    ifstream i_sm("dump_initial_VDState.bin", ios_base::binary);
+    assert(i_sm && "open file failed: dump_initial_VDState.bin\n");;
 
     i_sm.seekg(0, ios::end);
-    uint64_t size_e1000State = i_sm.tellg();
+    uint64_t size_vdState = i_sm.tellg();
     i_sm.seekg(0, ios::beg);
 
-    string initial_e1000State;
-    initial_e1000State.reserve(size_e1000State);
-    initial_e1000State.assign((std::istreambuf_iterator<char>(i_sm)),
+    string initial_vdState;
+    initial_vdState.reserve(size_vdState);
+    initial_vdState.assign((std::istreambuf_iterator<char>(i_sm)),
                 std::istreambuf_iterator<char>());
 
-    assert(initial_e1000State.size() == size_e1000State);
+    assert(initial_vdState.size() == size_vdState);
 
-    // 2. Set the initializer for the global variable "crete_e1000_state"
-    Constant *const_initial_e1000State = ConstantDataArray::getString(m_module->getContext(), initial_e1000State, false);
-    GlobalVariable *gvar_crete_e1000State = m_module->getGlobalVariable("crete_e1000_state");
-    assert(!gvar_crete_e1000State);
+    // 2. Set the initializer for the global variable "crete_vd_state"
+    Constant *const_initial_vdState = ConstantDataArray::getString(m_module->getContext(), initial_vdState, false);
+    GlobalVariable *gvar_crete_vdState = m_module->getGlobalVariable("crete_vd_state");
+    assert(!gvar_crete_vdState);
 
-    gvar_crete_e1000State->setInitializer(const_initial_e1000State);
-    gvar_crete_e1000State->setAlignment(16);
+    gvar_crete_vdState->setInitializer(const_initial_vdState);
+    gvar_crete_vdState->setAlignment(16);
 }
 
 
@@ -1758,28 +1758,28 @@ void TCGLLVMContextPrivate::generate_crete_tb_prologue(uint64_t tb_count, uint64
         m_builder.CreateCall(func_crete_sync_device, crete_sync_memory_argValues);
     }
 
-    // 2. call void crete_sync_e1000_state(uint8_t *e1000_state, uint32_t es_size,
-    //                             const struct E1000StateElement *sync_table, uint32_t st_size);
-    if(m_e1000State_sync_globals[tb_count].first != 0)
+    // 2. call void crete_sync_vd_state(uint8_t *vd_state, uint32_t es_size,
+    //                             const struct VDStateElement *sync_table, uint32_t st_size);
+    if(m_vdState_sync_globals[tb_count].first != 0)
     {
-        uint32_t st_size = m_e1000State_sync_globals[tb_count].first;
-        GlobalVariable *sync_table = m_e1000State_sync_globals[tb_count].second;
+        uint32_t st_size = m_vdState_sync_globals[tb_count].first;
+        GlobalVariable *sync_table = m_vdState_sync_globals[tb_count].second;
 
-        Function* func_sync_e1000_state = m_module->getFunction("crete_sync_e1000_state");
-        if(!func_sync_e1000_state)
+        Function* func_sync_vd_state = m_module->getFunction("crete_sync_vd_state");
+        if(!func_sync_vd_state)
         {
-            BOOST_THROW_EXCEPTION(std::runtime_error("[Crete Error] crete_sync_e1000_state() is not defined.\n"));
+            BOOST_THROW_EXCEPTION(std::runtime_error("[Crete Error] crete_sync_vd_state() is not defined.\n"));
         }
 
-        // 1.1 uint8_t *e1000_state (getelementptr inbounds (crete_e1000_state, i32 0, i32 0))
-        GlobalVariable *gvar_crete_e1000State = m_module->getGlobalVariable("crete_e1000_state");
-        assert(!gvar_crete_e1000State);
-        Constant* const_ptr_e1000_state = ConstantExpr::getGetElementPtr(gvar_crete_e1000State,
+        // 1.1 uint8_t *vd_state (getelementptr inbounds (crete_vd_state, i32 0, i32 0))
+        GlobalVariable *gvar_crete_vdState = m_module->getGlobalVariable("crete_vd_state");
+        assert(!gvar_crete_vdState);
+        Constant* const_ptr_vd_state = ConstantExpr::getGetElementPtr(gvar_crete_vdState,
                 vector<Constant *>(2, ConstantInt::get(m_module->getContext(), APInt(32, 0))));
         // 1.2 uint32_t cs_size
         //TODO: xxx
-//        ConstantInt* const_int32_e1000State_size = ConstantInt::get(m_module->getContext(), APInt(32, m_cpuState_size));
-        ConstantInt* const_int32_e1000State_size = ConstantInt::get(m_module->getContext(), APInt(32, 0));
+//        ConstantInt* const_int32_vdState_size = ConstantInt::get(m_module->getContext(), APInt(32, m_cpuState_size));
+        ConstantInt* const_int32_vdState_size = ConstantInt::get(m_module->getContext(), APInt(32, 0));
         // 1.3 const struct CPUStateElement *sync_table:
         //         (getelementptr inbounds (crete_cpu_state, i32 0, i32 0))
         Constant* const_ptr_sync_table = ConstantExpr::getGetElementPtr(sync_table,
@@ -1787,12 +1787,12 @@ void TCGLLVMContextPrivate::generate_crete_tb_prologue(uint64_t tb_count, uint64
         // 1.4 uint32_t st_size
         ConstantInt* const_int32_st_size = ConstantInt::get(m_module->getContext(), APInt(32, st_size));
 
-        std::vector<Value*> sync_e1000_state_argValues;
-        sync_e1000_state_argValues.push_back(const_ptr_e1000_state);
-        sync_e1000_state_argValues.push_back(const_int32_e1000State_size);
-        sync_e1000_state_argValues.push_back(const_ptr_sync_table);
-        sync_e1000_state_argValues.push_back(const_int32_st_size);
-        m_builder.CreateCall(func_sync_e1000_state, sync_e1000_state_argValues);
+        std::vector<Value*> sync_vd_state_argValues;
+        sync_vd_state_argValues.push_back(const_ptr_vd_state);
+        sync_vd_state_argValues.push_back(const_int32_vdState_size);
+        sync_vd_state_argValues.push_back(const_ptr_sync_table);
+        sync_vd_state_argValues.push_back(const_int32_st_size);
+        m_builder.CreateCall(func_sync_vd_state, sync_vd_state_argValues);
     }
     {
         // 2. call void @crete_qemu_tb_prologue(i64 tb_count, i64 tb_pc)
@@ -2042,30 +2042,30 @@ void TCGLLVMContextPrivate::generate_llvm_DeviceSyncTable(const creteVDTable_ty&
     m_device_access_globals.push_back(make_pair(syncTable_size, gvar_array_cpuStateSyncTable));
 }
 
-void TCGLLVMContextPrivate::crete_generate_llvm_e1000StateSyncTables(const string& input_file_name)
+void TCGLLVMContextPrivate::crete_generate_llvm_VDStateSyncTables(const string& input_file_name)
 {
     ifstream i_sm(input_file_name.c_str(), ios_base::binary);
     if(!i_sm.good()) {
         BOOST_THROW_EXCEPTION(std::runtime_error("[Crete Error] can't find file: " + input_file_name));
     }
 
-    vector<e1000StateSyncTable_ty> e1000StateSyncTables;
+    vector<VDStateSyncTable_ty> VDStateSyncTables;
     boost::archive::binary_iarchive ia(i_sm);
-    ia >> e1000StateSyncTables;
+    ia >> VDStateSyncTables;
 
-    for(vector<cpuStateSyncTable_ty>::const_iterator it = e1000StateSyncTables.begin();
-            it != e1000StateSyncTables.end(); ++it) {
-        crete_generate_llvm_e1000StateSyncTable(*it);
+    for(vector<cpuStateSyncTable_ty>::const_iterator it = VDStateSyncTables.begin();
+            it != VDStateSyncTables.end(); ++it) {
+        crete_generate_llvm_VDStateSyncTable(*it);
     }
 }
 
-void TCGLLVMContextPrivate::crete_generate_llvm_e1000StateSyncTable(const e1000StateSyncTable_ty& csst)
+void TCGLLVMContextPrivate::crete_generate_llvm_VDStateSyncTable(const VDStateSyncTable_ty& csst)
 {
-    fprintf(stderr, "crete_generate_llvm_e1000StateSyncTable(): ");
+    fprintf(stderr, "crete_generate_llvm_VDStateSyncTable(): ");
     if(!csst.first)
     {
         fprintf(stderr, "empty\n");
-        m_e1000State_sync_globals.push_back(make_pair(0, (GlobalVariable*)0));
+        m_vdState_sync_globals.push_back(make_pair(0, (GlobalVariable*)0));
         return;
     }
 
@@ -2080,7 +2080,7 @@ void TCGLLVMContextPrivate::crete_generate_llvm_e1000StateSyncTable(const e1000S
     std::vector<Constant*> const_array_elems; // construct value for syncTable in llvm
     const_array_elems.reserve(syncTable_size);
 
-    for(vector<E1000StateElement>::const_iterator it = csst.second.begin();
+    for(vector<VDStateElement>::const_iterator it = csst.second.begin();
             it != csst.second.end(); ++it) {
         uint64_t offset = it->m_offset;
         uint64_t size = it->m_size;
@@ -2100,7 +2100,7 @@ void TCGLLVMContextPrivate::crete_generate_llvm_e1000StateSyncTable(const e1000S
                                                              GlobalValue::PrivateLinkage, /*Linkage=*/
                                                              ConstantDataArray::getString(m_module->getContext(),
                                                                                           string(data.begin(), data.end()), false), /*Initializer=*/
-                                                             "e1000_element_str_");
+                                                             "vd_element_str_");
         //    3.2 char i8* getelementptr inbounds (gvar_array__str, i32 0, i32 0)
         Constant* const_ptr_data = ConstantExpr::getGetElementPtr(gvar_array__str,
                                                                   vector<Constant *>(2, ConstantInt::get(m_module->getContext(), APInt(32, 0))));
@@ -2126,7 +2126,7 @@ void TCGLLVMContextPrivate::crete_generate_llvm_e1000StateSyncTable(const e1000S
                                                                       GlobalValue::ExternalLinkage, /*Linkage=*/
                                                                       ConstantArray::get(ArrayTy_syncTable, const_array_elems) /*Initializer=*/);
 
-    m_e1000State_sync_globals.push_back(make_pair(syncTable_size, gvar_array_cpuStateSyncTable));
+    m_vdState_sync_globals.push_back(make_pair(syncTable_size, gvar_array_cpuStateSyncTable));
 }
 
 /***********************************/
@@ -2264,9 +2264,9 @@ void TCGLLVMContext::generate_llvm_DeviceSyncTables(const string& input_file_nam
     m_private->generate_llvm_DeviceSyncTables(input_file_name);
 }
 
-void TCGLLVMContext::generate_llvm_e1000StateSyncTables(const string& input_file_name)
+void TCGLLVMContext::generate_llvm_VDStateSyncTables(const string& input_file_name)
 {
-    m_private->crete_generate_llvm_e1000StateSyncTables(input_file_name);
+    m_private->crete_generate_llvm_VDStateSyncTables(input_file_name);
 }
 
 #endif // TCG_LLVM_OFFLINE

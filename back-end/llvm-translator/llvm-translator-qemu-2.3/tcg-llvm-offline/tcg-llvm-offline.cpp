@@ -391,8 +391,8 @@ void x86_llvm_translator()
         {
             //process crete_CPUStateSynctable();
             ss.str(string());
-            ss << "dump_sync_e1000_states." << streamed_count-1 << ".bin";
-            tcg_llvm_ctx->generate_llvm_e1000StateSyncTables(ss.str());
+            ss << "dump_sync_vd_states." << streamed_count-1 << ".bin";
+            tcg_llvm_ctx->generate_llvm_VDStateSyncTables(ss.str());
         }
     }
 

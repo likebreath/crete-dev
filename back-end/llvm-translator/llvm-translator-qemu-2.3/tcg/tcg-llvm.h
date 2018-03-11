@@ -129,7 +129,7 @@ public:
     void generate_llvm_cpuStateSyncTables(const string& input_file_name);
     void generate_llvm_MemorySyncTables(const string& input_file_name);
     void generate_llvm_DeviceSyncTables(const string& input_file_name);
-    void generate_llvm_e1000StateSyncTables(const string& input_file_name);
+    void generate_llvm_VDStateSyncTables(const string& input_file_name);
 #else
 #error "ERROR"
 #endif
