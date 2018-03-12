@@ -33,7 +33,7 @@ ExternalProject_Add(
 
         BUILD_COMMAND make -j7
 
-	INSTALL_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/llvm-translator-qemu-2.3/crete_gen_links.sh ${CMAKE_BINARY_DIR}
+	INSTALL_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/llvm-translator-qemu-2.3/crete_gen_links.sh ${CMAKE_BINARY_DIR} ${CRETE_TARGET_VD}
 	)
 
 add_dependencies(llvm-translator-qemu-2.3 boost)

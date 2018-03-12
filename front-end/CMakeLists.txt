@@ -4,6 +4,14 @@ project(front-end)
 
 include(ExternalProject)
 
+if(${CRETE_TARGET_VD} STREQUAL "E1000")
+  set(QEMU_VD_FLAG "CRETE_VD_E1000")
+elseif(${CRETE_TARGET_VD} STREQUAL "EEPRO100")
+  set(QEMU_VD_FLAG "CRETE_VD_EEPRO100")
+else()
+  message (FATAL_ERROR "CRETE_TARGET_VD is not set corrected: only 'E1000' and 'EEPRO100' supported")
+endif()
+
 ExternalProject_Add(
 	qemu-2.3
 
@@ -17,7 +25,7 @@ ExternalProject_Add(
         ./configure
         --enable-tcg-interpreter
         --target-list=i386-softmmu,x86_64-softmmu
-        "--extra-cflags=-I${CMAKE_SOURCE_DIR}/lib/include -I${CMAKE_BINARY_DIR}/lib/boost/boost-prefix/src/boost_1_59_0 -DCRETE_VD_E1000"
+        "--extra-cflags=-I${CMAKE_SOURCE_DIR}/lib/include -I${CMAKE_BINARY_DIR}/lib/boost/boost-prefix/src/boost_1_59_0 -D${QEMU_VD_FLAG}"
         "--extra-ldflags=-L${CMAKE_BINARY_DIR}/bin -L${CMAKE_BINARY_DIR}/bin/boost"
 
 	BUILD_COMMAND make -j7
