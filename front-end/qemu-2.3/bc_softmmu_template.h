@@ -95,6 +95,8 @@
 void crete_todo_op_helper(); /* dummy declaration to indicate the todo works*/
 uint64_t crete_get_dynamic_addr(uint64_t static_addr);
 uint64_t crete_try_device_memory_access(uint64_t addr, int size, uint64_t value, int is_write, int *is_device_access);
+void crete_enable_fork();
+void crete_disable_fork();
 
 #ifndef SOFTMMU_CODE_ACCESS
 static inline DATA_TYPE glue(io_read, SUFFIX)(CPUArchState *env,
@@ -127,11 +129,17 @@ WORD_TYPE helper_le_ld_name(CPUArchState *env, target_ulong addr, int mmu_idx,
 
     DATA_TYPE res_1;
     res_1 = (DATA_TYPE)crete_try_device_memory_access(addr, DATA_SIZE, 0, 0, &is_device_access);
+
+    crete_disable_fork();
     if(is_device_access)
     {
         assert(res_1 == res);
+        crete_enable_fork();
+
         return res_1;
     }
+
+    crete_enable_fork();
 
     return res;
 }
@@ -157,12 +165,16 @@ WORD_TYPE helper_be_ld_name(CPUArchState *env, target_ulong addr, int mmu_idx,
 
     DATA_TYPE res_1;
     res_1 = (DATA_TYPE)crete_try_device_memory_access(addr, DATA_SIZE, 0, 0, &is_device_access);
+    crete_disable_fork();
     if(is_device_access)
     {
         assert(res_1 == res);
+        crete_enable_fork();
+
         return res_1;
     }
 
+    crete_enable_fork();
     return res;
 }
 #endif /* DATA_SIZE > 1 */
