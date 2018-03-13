@@ -38,14 +38,18 @@ namespace crete
             return  name_size == other.name_size &&
                     name == other.name &&
                     data_size == other.data_size &&
-                    data == other.data;
+                    data == other.data &&
+                    useful_data_size == other.useful_data_size;
         }
 #endif
 
         friend std::size_t hash_value(TestCaseElement const& i)
         {
-            return boost::hash_value(string(i.name.begin(), i.name.end())  +
+            std::size_t seed = 0;
+            boost::hash_combine(seed,string(i.name.begin(), i.name.end()) +
                                      string(i.data.begin(), i.data.end()));
+            boost::hash_combine(seed, i.useful_data_size);
+            return seed;
         }
 
         void print() const;

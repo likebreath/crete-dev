@@ -132,7 +132,7 @@ static inline void crete_make_concolic_file(const config::File& file)
 
     size_t out_result = fwrite(buffer, 1, useful_size, out_fd);
 
-    if(out_result != file.size) {
+    if(out_result != useful_size) {
       throw runtime_error("wrong size of writing symbolic values in preload for making concolic file\n");
     }
 
