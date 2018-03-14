@@ -135,17 +135,9 @@ static void pcnet_ioport_write(void *opaque, hwaddr addr,
 }
 
 extern char crete_vd_state[sizeof(PCNetState)];
-extern void crete_bc_print(const char *);
-extern bool crete_is_symbolic(uint64_t);
 
 uint64_t dispatch_vd_op(uint64_t v_addr, uint64_t p_addr, int size, uint64_t value, int is_write)
 {
-    if(crete_is_symbolic(value))
-    {
-        crete_bc_print("dispatch_vd_op(): symbolic input 'value'");
-    } else {
-        crete_bc_print("dispatch_vd_op(): concrete input 'value'");
-    }
     if(is_write)
     {
         pcnet_ioport_write(crete_vd_state, p_addr, value, size);

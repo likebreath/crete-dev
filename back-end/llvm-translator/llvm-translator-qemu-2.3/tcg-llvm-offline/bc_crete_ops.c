@@ -1,4 +1,5 @@
 #include "stdint.h"
+#include "stdbool.h"
 
 void crete_enable_fork();
 void crete_disable_fork();
@@ -109,6 +110,9 @@ void crete_sync_device(const struct VirtualDeviceOps *sync_table, uint32_t st_si
 }
 
 extern uint64_t dispatch_vd_op(uint64_t v_addr, uint64_t p_addr, int size, uint64_t value, int is_write);
+extern void crete_bc_print(const char *);
+extern bool crete_is_symbolic(uint64_t);
+
 uint64_t crete_try_device_memory_access(uint64_t addr, int size, uint64_t value, int is_write, int *is_device_access)
 {
     crete_disable_fork();
@@ -122,6 +126,20 @@ uint64_t crete_try_device_memory_access(uint64_t addr, int size, uint64_t value,
     crete_enable_fork();
 
     *is_device_access = 1;
+
+#if defined(CRETE_BC_DEBUG) || 1
+    crete_bc_print("calling dispatch_vd_op():");
+
+    if(crete_is_symbolic(value))
+    {
+        crete_bc_print("symbolic input 'value' !");
+    }
+    if(crete_is_symbolic(addr))
+    {
+        crete_bc_print("symbolic input 'addr' !");
+    }
+#endif
+
     return dispatch_vd_op(addr, current_vd_op->m_phys_addr, size, value, is_write);
 }
 
