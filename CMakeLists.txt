@@ -10,8 +10,9 @@ if(NOT (DEFINED CRETE_TARGET_VD))
   message (WARNING "'CRETE_TARGET_VD' is not specified, default value 'E1000' is being used!")
   set(CRETE_TARGET_VD "E1000")
 elseif(NOT ((${CRETE_TARGET_VD} STREQUAL "E1000") OR
-      (${CRETE_TARGET_VD} STREQUAL "EEPRO100")))
-  message (FATAL_ERROR "CRETE_TARGET_VD is not set corrected: only 'E1000' and 'EEPRO100' supported")
+      (${CRETE_TARGET_VD} STREQUAL "EEPRO100") OR
+      (${CRETE_TARGET_VD} STREQUAL "NE2000")))
+  message (FATAL_ERROR "CRETE_TARGET_VD is not set corrected: only 'E1000', 'EEPRO100', and 'NE2000' supported")
 endif()
 
 include_directories("${PROJECT_SOURCE_DIR}/lib/include" "${CMAKE_BINARY_DIR}/lib/boost/boost-prefix/src/boost_1_59_0")

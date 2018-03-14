@@ -28,15 +28,6 @@
 #include "hw/loader.h"
 #include "sysemu/sysemu.h"
 
-#if defined(CRETE_VD_NE2000)
-#include "runtime-dump/crete-debug.h"
-
-void *crete_vd_instance = NULL;
-
-uint64_t crete_get_VDState_size(void);
-bool crete_get_VDState_offset(const char *field, uint64_t *offset, uint64_t *size);
-#endif
-
 /* debug NE2000 card */
 //#define DEBUG_NE2000
 
@@ -620,53 +611,9 @@ static int ne2000_post_load(void* opaque, int version_id)
     return 0;
 }
 
-const VMStateDescription vmstate_ne2000 = {
-    .name = "ne2000",
-    .version_id = 2,
-    .minimum_version_id = 0,
-    .post_load = ne2000_post_load,
-    .fields = (VMStateField[]) {
-        VMSTATE_UINT8_V(rxcr, NE2000State, 2),
-        VMSTATE_UINT8(cmd, NE2000State),
-        VMSTATE_UINT32(start, NE2000State),
-        VMSTATE_UINT32(stop, NE2000State),
-        VMSTATE_UINT8(boundary, NE2000State),
-        VMSTATE_UINT8(tsr, NE2000State),
-        VMSTATE_UINT8(tpsr, NE2000State),
-        VMSTATE_UINT16(tcnt, NE2000State),
-        VMSTATE_UINT16(rcnt, NE2000State),
-        VMSTATE_UINT32(rsar, NE2000State),
-        VMSTATE_UINT8(rsr, NE2000State),
-        VMSTATE_UINT8(isr, NE2000State),
-        VMSTATE_UINT8(dcfg, NE2000State),
-        VMSTATE_UINT8(imr, NE2000State),
-        VMSTATE_BUFFER(phys, NE2000State),
-        VMSTATE_UINT8(curpag, NE2000State),
-        VMSTATE_BUFFER(mult, NE2000State),
-        VMSTATE_UNUSED(4), /* was irq */
-        VMSTATE_BUFFER(mem, NE2000State),
-        VMSTATE_END_OF_LIST()
-    }
-};
-
-static const VMStateDescription vmstate_pci_ne2000 = {
-    .name = "ne2000",
-    .version_id = 3,
-    .minimum_version_id = 3,
-    .fields = (VMStateField[]) {
-        VMSTATE_PCI_DEVICE(dev, PCINE2000State),
-        VMSTATE_STRUCT(ne2000, PCINE2000State, 0, vmstate_ne2000, NE2000State),
-        VMSTATE_END_OF_LIST()
-    }
-};
-
 static uint64_t ne2000_read(void *opaque, hwaddr addr,
                             unsigned size)
 {
-#if defined(CRETE_VD_NE2000)
-    assert(crete_vd_instance == opaque);
-#endif
-
     NE2000State *s = opaque;
 
     if (addr < 0x10 && size == 1) {
@@ -686,10 +633,6 @@ static uint64_t ne2000_read(void *opaque, hwaddr addr,
 static void ne2000_write(void *opaque, hwaddr addr,
                          uint64_t data, unsigned size)
 {
-#if defined(CRETE_VD_NE2000)
-    assert(crete_vd_instance == opaque);
-#endif
-
     NE2000State *s = opaque;
 
     if (addr < 0x10 && size == 1) {
@@ -705,165 +648,24 @@ static void ne2000_write(void *opaque, hwaddr addr,
     }
 }
 
-static const MemoryRegionOps ne2000_ops = {
-    .read = ne2000_read,
-    .write = ne2000_write,
-    .endianness = DEVICE_LITTLE_ENDIAN,
-};
+extern char crete_vd_state[sizeof(NE2000State)];
+extern void crete_bc_print(const char *);
+extern bool crete_is_symbolic(uint64_t);
 
-/***********************************************************/
-/* PCI NE2000 definitions */
-
-void ne2000_setup_io(NE2000State *s, DeviceState *dev, unsigned size)
+uint64_t dispatch_vd_op(uint64_t v_addr, uint64_t p_addr, int size, uint64_t value, int is_write)
 {
-    memory_region_init_io(&s->io, OBJECT(dev), &ne2000_ops, s, "ne2000", size);
-}
-
-static NetClientInfo net_ne2000_info = {
-    .type = NET_CLIENT_OPTIONS_KIND_NIC,
-    .size = sizeof(NICState),
-    .can_receive = ne2000_can_receive,
-    .receive = ne2000_receive,
-};
-
-static void pci_ne2000_realize(PCIDevice *pci_dev, Error **errp)
-{
-    PCINE2000State *d = DO_UPCAST(PCINE2000State, dev, pci_dev);
-    NE2000State *s;
-    uint8_t *pci_conf;
-
-    pci_conf = d->dev.config;
-    pci_conf[PCI_INTERRUPT_PIN] = 1; /* interrupt pin A */
-
-    s = &d->ne2000;
-    ne2000_setup_io(s, DEVICE(pci_dev), 0x100);
-    pci_register_bar(&d->dev, 0, PCI_BASE_ADDRESS_SPACE_IO, &s->io);
-    s->irq = pci_allocate_irq(&d->dev);
-
-    qemu_macaddr_default_if_unset(&s->c.macaddr);
-    ne2000_reset(s);
-
-    s->nic = qemu_new_nic(&net_ne2000_info, &s->c,
-                          object_get_typename(OBJECT(pci_dev)), pci_dev->qdev.id, s);
-    qemu_format_nic_info_str(qemu_get_queue(s->nic), s->c.macaddr.a);
-}
-
-static void pci_ne2000_exit(PCIDevice *pci_dev)
-{
-    PCINE2000State *d = DO_UPCAST(PCINE2000State, dev, pci_dev);
-    NE2000State *s = &d->ne2000;
-
-    qemu_del_nic(s->nic);
-    qemu_free_irq(s->irq);
-}
-
-static void ne2000_instance_init(Object *obj)
-{
-    PCIDevice *pci_dev = PCI_DEVICE(obj);
-    PCINE2000State *d = DO_UPCAST(PCINE2000State, dev, pci_dev);
-    NE2000State *s = &d->ne2000;
-
-    device_add_bootindex_property(obj, &s->c.bootindex,
-                                  "bootindex", "/ethernet-phy@0",
-                                  &pci_dev->qdev, NULL);
-
-#if defined(CRETE_VD_NE2000)
-    if(!crete_vd_instance)
+    if(crete_is_symbolic(value))
     {
-        crete_vd_instance = s;
+        crete_bc_print("dispatch_vd_op(): symbolic input 'value'");
+    } else {
+        crete_bc_print("dispatch_vd_op(): concrete input 'value'");
     }
-#endif
+
+    if(is_write)
+    {
+        ne2000_write(crete_vd_state, p_addr, value, size);
+        return 0;
+    } else {
+        return ne2000_read(crete_vd_state, p_addr, size);
+    }
 }
-
-static Property ne2000_properties[] = {
-    DEFINE_NIC_PROPERTIES(PCINE2000State, ne2000.c),
-    DEFINE_PROP_END_OF_LIST(),
-};
-
-static void ne2000_class_init(ObjectClass *klass, void *data)
-{
-    DeviceClass *dc = DEVICE_CLASS(klass);
-    PCIDeviceClass *k = PCI_DEVICE_CLASS(klass);
-
-    k->realize = pci_ne2000_realize;
-    k->exit = pci_ne2000_exit;
-    k->romfile = "efi-ne2k_pci.rom",
-    k->vendor_id = PCI_VENDOR_ID_REALTEK;
-    k->device_id = PCI_DEVICE_ID_REALTEK_8029;
-    k->class_id = PCI_CLASS_NETWORK_ETHERNET;
-    dc->vmsd = &vmstate_pci_ne2000;
-    dc->props = ne2000_properties;
-    set_bit(DEVICE_CATEGORY_NETWORK, dc->categories);
-}
-
-static const TypeInfo ne2000_info = {
-    .name          = "ne2k_pci",
-    .parent        = TYPE_PCI_DEVICE,
-    .instance_size = sizeof(PCINE2000State),
-    .class_init    = ne2000_class_init,
-    .instance_init = ne2000_instance_init,
-};
-
-static void ne2000_register_types(void)
-{
-    type_register_static(&ne2000_info);
-}
-
-type_init(ne2000_register_types)
-
-#if defined(CRETE_VD_NE2000)
-const uint64_t crete_vd_trace_accessor[] = {
-        (uint64_t)ne2000_read,
-        (uint64_t)ne2000_write,
-        0
-};
-
-#define VDState_OFFSET(field) offsetof(NE2000State, field)
-
-#define ___GET_VDSTATE_OFFSET(type, ref_field)   \
-        if(!strcmp(field, #ref_field))           \
-        {                                        \
-            *offset = VDState_OFFSET(ref_field); \
-            *size = sizeof(type);                \
-            return 1;                            \
-        }
-
-#if !(NE2000_MEM_SIZE == (32*1024 + 16*1024))
-#error [ERROR] CRETE_VD_EEPRO100: check NE2000_MEM_SIZE and adjust 'compuate_side_effect_NE2000State()'
-#endif
-
-uint64_t crete_get_VDState_size(void)
-{
-    return sizeof(NE2000State);
-}
-
-bool crete_get_VDState_offset(const char *field, uint64_t *offset, uint64_t *size)
-{
-    // typedef struct NE2000State {
-    ___GET_VDSTATE_OFFSET(MemoryRegion, io);
-    ___GET_VDSTATE_OFFSET(uint8_t, cmd);
-    ___GET_VDSTATE_OFFSET(uint32_t, start);
-    ___GET_VDSTATE_OFFSET(uint32_t, stop);
-    ___GET_VDSTATE_OFFSET(uint8_t, boundary);
-    ___GET_VDSTATE_OFFSET(uint8_t, tsr);
-    ___GET_VDSTATE_OFFSET(uint8_t, tpsr);
-    ___GET_VDSTATE_OFFSET(uint16_t, tcnt);
-    ___GET_VDSTATE_OFFSET(uint16_t, rcnt);
-    ___GET_VDSTATE_OFFSET(uint32_t, rsar);
-    ___GET_VDSTATE_OFFSET(uint8_t, rsr);
-    ___GET_VDSTATE_OFFSET(uint8_t, rxcr);
-    ___GET_VDSTATE_OFFSET(uint8_t, isr);
-    ___GET_VDSTATE_OFFSET(uint8_t, dcfg);
-    ___GET_VDSTATE_OFFSET(uint8_t, imr);
-    ___GET_VDSTATE_OFFSET(uint8_t, phys);
-    ___GET_VDSTATE_OFFSET(uint8_t, curpag);
-    ___GET_VDSTATE_OFFSET(uint8_t, mult);
-    ___GET_VDSTATE_OFFSET(qemu_irq, irq);
-    ___GET_VDSTATE_OFFSET(NICState, nic);
-    ___GET_VDSTATE_OFFSET(NICConf, c);
-    ___GET_VDSTATE_OFFSET(uint8_t, mem);
-    // } NE2000State;
-
-    return 0;
-}
-#endif

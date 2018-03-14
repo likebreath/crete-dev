@@ -8,8 +8,10 @@ if(${CRETE_TARGET_VD} STREQUAL "E1000")
   set(QEMU_VD_FLAG "CRETE_VD_E1000")
 elseif(${CRETE_TARGET_VD} STREQUAL "EEPRO100")
   set(QEMU_VD_FLAG "CRETE_VD_EEPRO100")
+elseif(${CRETE_TARGET_VD} STREQUAL "NE2000")
+  set(QEMU_VD_FLAG "CRETE_VD_NE2000")
 else()
-  message (FATAL_ERROR "CRETE_TARGET_VD is not set corrected: only 'E1000' and 'EEPRO100' supported")
+  message (FATAL_ERROR "CRETE_TARGET_VD is not set corrected: only 'E1000', 'EEPRO100', and 'NE2000' supported")
 endif()
 
 ExternalProject_Add(

@@ -3252,6 +3252,49 @@ static vector<VDStateElement> compuate_side_effect_EEPRO100State(const uint8_t *
     return ret;
 }
 
+// VDState: NE2000State
+// List of NE2000State being ignored
+//  Element:                            Reason
+// +--------------------------------+----------------------------+
+// NICState *nic,                    pointer
+// qemu_irq irq;                     pointer
+static vector<VDStateElement> compuate_side_effect_NE2000State(const uint8_t *reference,
+        const uint8_t *target) {
+    vector<VDStateElement> ret;
+    ret.clear();
+
+    uint64_t base_offset;
+    uint64_t offset;
+    uint64_t size;
+    vector<uint8_t> data;
+    bool valid;
+
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("io");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("cmd");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("start");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("stop");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("boundary");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("tsr");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("tpsr");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("tcnt");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("rcnt");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("rsar");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("rsr");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("rxcr");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("isr");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("dcfg");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("imr");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT_ARRAY("phys", 6);
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("curpag");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT_ARRAY("mult", 8);
+//    __CRETE_CALC_VDSTATE_SIDE_EFFECT("irq");
+//    __CRETE_CALC_VDSTATE_SIDE_EFFECT("*nic");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("c");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT_ARRAY("mem", 32*1024 + 16*1024);
+
+    return ret;
+}
+
 // VDState
 static vector<VDStateElement> compuate_side_effect_VDState(const uint8_t *reference,
         const uint8_t *target) {
@@ -3259,6 +3302,8 @@ static vector<VDStateElement> compuate_side_effect_VDState(const uint8_t *refere
     return compuate_side_effect_E1000State(reference, target);
 #elif defined(CRETE_VD_EEPRO100)
     return compuate_side_effect_EEPRO100State(reference, target);
+#elif defined(CRETE_VD_NE2000)
+    return compuate_side_effect_NE2000State(reference, target);
 #else
 #error NO TARGET VIRTUAL DEVICE IS SPECIFIED: CRETE_VD_E1000 AND CRETE_VD_EEPRO100 ARE SUPPORTED
 #endif

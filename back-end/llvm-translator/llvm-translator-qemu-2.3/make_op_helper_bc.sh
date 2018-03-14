@@ -6,6 +6,8 @@ if [ $CRETE_TARGET_VD == "E1000" ]; then
     target_vd_bc="bc_vd_e1000.bc"
 elif [ $CRETE_TARGET_VD == "EEPRO100" ]; then
     target_vd_bc="bc_vd_eepro100.bc"
+elif [ $CRETE_TARGET_VD == "NE2000" ]; then
+    target_vd_bc="bc_vd_ne2000.bc"
 fi
 
 
