@@ -37,6 +37,15 @@
 
 #include "pcnet.h"
 
+#if defined(CRETE_VD_PCNET)
+#include "runtime-dump/crete-debug.h"
+
+void *crete_vd_instance = NULL;
+
+uint64_t crete_get_VDState_size(void);
+bool crete_get_VDState_offset(const char *field, uint64_t *offset, uint64_t *size);
+#endif
+
 //#define PCNET_DEBUG
 //#define PCNET_DEBUG_IO
 //#define PCNET_DEBUG_BCR
@@ -81,6 +90,10 @@ static uint32_t pcnet_aprom_readb(void *opaque, uint32_t addr)
 static uint64_t pcnet_ioport_read(void *opaque, hwaddr addr,
                                   unsigned size)
 {
+#if defined(CRETE_VD_PCNET)
+    assert(crete_vd_instance == opaque);
+#endif
+
     PCNetState *d = opaque;
 
     trace_pcnet_ioport_read(opaque, addr, size);
@@ -109,6 +122,10 @@ static uint64_t pcnet_ioport_read(void *opaque, hwaddr addr,
 static void pcnet_ioport_write(void *opaque, hwaddr addr,
                                uint64_t data, unsigned size)
 {
+#if defined(CRETE_VD_PCNET)
+    assert(crete_vd_instance == opaque);
+#endif
+
     PCNetState *d = opaque;
 
     trace_pcnet_ioport_write(opaque, addr, data, size);
@@ -141,6 +158,10 @@ static const MemoryRegionOps pcnet_io_ops = {
 
 static void pcnet_mmio_writeb(void *opaque, hwaddr addr, uint32_t val)
 {
+#if defined(CRETE_VD_PCNET)
+    assert(0 && "[CRETE_VD ERROR] Assumption broken: MMIO operations are being used by pcnet!\n");
+#endif
+
     PCNetState *d = opaque;
 
     trace_pcnet_mmio_writeb(opaque, addr, val);
@@ -150,6 +171,10 @@ static void pcnet_mmio_writeb(void *opaque, hwaddr addr, uint32_t val)
 
 static uint32_t pcnet_mmio_readb(void *opaque, hwaddr addr)
 {
+#if defined(CRETE_VD_PCNET)
+    assert(0 && "[CRETE_VD ERROR] Assumption broken: MMIO operations are being used by pcnet!\n");
+#endif
+
     PCNetState *d = opaque;
     uint32_t val = -1;
 
@@ -161,6 +186,10 @@ static uint32_t pcnet_mmio_readb(void *opaque, hwaddr addr)
 
 static void pcnet_mmio_writew(void *opaque, hwaddr addr, uint32_t val)
 {
+#if defined(CRETE_VD_PCNET)
+    assert(0 && "[CRETE_VD ERROR] Assumption broken: MMIO operations are being used by pcnet!\n");
+#endif
+
     PCNetState *d = opaque;
 
     trace_pcnet_mmio_writew(opaque, addr, val);
@@ -175,6 +204,10 @@ static void pcnet_mmio_writew(void *opaque, hwaddr addr, uint32_t val)
 
 static uint32_t pcnet_mmio_readw(void *opaque, hwaddr addr)
 {
+#if defined(CRETE_VD_PCNET)
+    assert(0 && "[CRETE_VD ERROR] Assumption broken: MMIO operations are being used by pcnet!\n");
+#endif
+
     PCNetState *d = opaque;
     uint32_t val = -1;
 
@@ -192,6 +225,10 @@ static uint32_t pcnet_mmio_readw(void *opaque, hwaddr addr)
 
 static void pcnet_mmio_writel(void *opaque, hwaddr addr, uint32_t val)
 {
+#if defined(CRETE_VD_PCNET)
+    assert(0 && "[CRETE_VD ERROR] Assumption broken: MMIO operations are being used by pcnet!\n");
+#endif
+
     PCNetState *d = opaque;
 
     trace_pcnet_mmio_writel(opaque, addr, val);
@@ -208,6 +245,10 @@ static void pcnet_mmio_writel(void *opaque, hwaddr addr, uint32_t val)
 
 static uint32_t pcnet_mmio_readl(void *opaque, hwaddr addr)
 {
+#if defined(CRETE_VD_PCNET)
+    assert(0 && "[CRETE_VD ERROR] Assumption broken: MMIO operations are being used by pcnet!\n");
+#endif
+
     PCNetState *d = opaque;
     uint32_t val;
 
@@ -334,6 +375,13 @@ static void pcnet_instance_init(Object *obj)
     device_add_bootindex_property(obj, &s->conf.bootindex,
                                   "bootindex", "/ethernet-phy@0",
                                   DEVICE(obj), NULL);
+
+#if defined(CRETE_VD_PCNET)
+    if(!crete_vd_instance)
+    {
+        crete_vd_instance = s;
+    }
+#endif
 }
 
 static Property pcnet_properties[] = {
@@ -373,3 +421,51 @@ static void pci_pcnet_register_types(void)
 }
 
 type_init(pci_pcnet_register_types)
+
+#if defined(CRETE_VD_PCNET)
+const uint64_t crete_vd_trace_accessor[] = {
+        (uint64_t)pcnet_ioport_read,
+        (uint64_t)pcnet_ioport_write,
+        0
+};
+
+#define VDState_OFFSET(field) offsetof(PCNetState, field)
+
+#define ___GET_VDSTATE_OFFSET(type, ref_field)   \
+        if(!strcmp(field, #ref_field))           \
+        {                                        \
+            *offset = VDState_OFFSET(ref_field); \
+            *size = sizeof(type);                \
+            return 1;                            \
+        }
+
+uint64_t crete_get_VDState_size(void)
+{
+    return sizeof(PCNetState);
+}
+
+bool crete_get_VDState_offset(const char *field, uint64_t *offset, uint64_t *size)
+{
+    ___GET_VDSTATE_OFFSET(NICState *, nic);
+    ___GET_VDSTATE_OFFSET(NICConf, conf);
+    ___GET_VDSTATE_OFFSET(QEMUTimer*, poll_timer);
+    ___GET_VDSTATE_OFFSET(int, rap);
+    ___GET_VDSTATE_OFFSET(int, isr);
+    ___GET_VDSTATE_OFFSET(int, lnkst);
+    ___GET_VDSTATE_OFFSET(uint32_t, rdra);
+    ___GET_VDSTATE_OFFSET(uint32_t, tdra);
+    ___GET_VDSTATE_OFFSET(uint8_t, prom);
+    ___GET_VDSTATE_OFFSET(uint16_t, csr);
+    ___GET_VDSTATE_OFFSET(uint16_t, bcr);
+    ___GET_VDSTATE_OFFSET(int, xmit_pos);
+    ___GET_VDSTATE_OFFSET(uint64_t, timer);
+    ___GET_VDSTATE_OFFSET(MemoryRegion, mmio);
+    ___GET_VDSTATE_OFFSET(uint8_t, buffer);
+    ___GET_VDSTATE_OFFSET(qemu_irq, irq);
+    ___GET_VDSTATE_OFFSET(void *, phys_mem_read);
+    ___GET_VDSTATE_OFFSET(void *, phys_mem_write);
+    ___GET_VDSTATE_OFFSET(void *, dma_opaque);
+    ___GET_VDSTATE_OFFSET(int, tx_busy);
+    ___GET_VDSTATE_OFFSET(int, looptest);
+}
+#endif

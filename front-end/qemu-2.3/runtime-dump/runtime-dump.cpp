@@ -3295,6 +3295,52 @@ static vector<VDStateElement> compuate_side_effect_NE2000State(const uint8_t *re
     return ret;
 }
 
+// VDState: PCNetState
+// List of PCNetState being ignored
+//  Element:                            Reason
+// +--------------------------------+----------------------------+
+// NICState *nic;                     Pointer
+// QEMUTimer *poll_timer;
+// qemu_irq irq;
+// void (*phys_mem_read)();
+// void (*phys_mem_write)();
+// void *dma_opaque;
+static vector<VDStateElement> compuate_side_effect_PCNETState(const uint8_t *reference,
+        const uint8_t *target) {
+    vector<VDStateElement> ret;
+    ret.clear();
+
+    uint64_t base_offset;
+    uint64_t offset;
+    uint64_t size;
+    vector<uint8_t> data;
+    bool valid;
+
+//    __CRETE_CALC_VDSTATE_SIDE_EFFECT("*nic");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("conf");
+//    __CRETE_CALC_VDSTATE_SIDE_EFFECT("*poll_timer");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("rap");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("isr");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("lnkst");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("rdra");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("tdra");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT_ARRAY("prom", 16);
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT_ARRAY("csr", 128);
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT_ARRAY("bcr", 32);
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("xmit_pos");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("timer");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("mmio");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT_ARRAY("buffer", 4096);
+//    __CRETE_CALC_VDSTATE_SIDE_EFFECT("irq");
+//    __CRETE_CALC_VDSTATE_SIDE_EFFECT("*phys_mem_read");
+//    __CRETE_CALC_VDSTATE_SIDE_EFFECT("*phys_mem_write");
+//    __CRETE_CALC_VDSTATE_SIDE_EFFECT("*dma_opaque");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("tx_busy");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("looptest");
+
+    return ret;
+}
+
 // VDState
 static vector<VDStateElement> compuate_side_effect_VDState(const uint8_t *reference,
         const uint8_t *target) {
@@ -3304,6 +3350,8 @@ static vector<VDStateElement> compuate_side_effect_VDState(const uint8_t *refere
     return compuate_side_effect_EEPRO100State(reference, target);
 #elif defined(CRETE_VD_NE2000)
     return compuate_side_effect_NE2000State(reference, target);
+#elif defined(CRETE_VD_PCNET)
+    return compuate_side_effect_PCNETState(reference, target);
 #else
 #error NO TARGET VIRTUAL DEVICE IS SPECIFIED: CRETE_VD_E1000 AND CRETE_VD_EEPRO100 ARE SUPPORTED
 #endif

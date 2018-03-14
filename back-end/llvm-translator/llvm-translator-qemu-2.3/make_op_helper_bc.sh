@@ -8,6 +8,8 @@ elif [ $CRETE_TARGET_VD == "EEPRO100" ]; then
     target_vd_bc="bc_vd_eepro100.bc"
 elif [ $CRETE_TARGET_VD == "NE2000" ]; then
     target_vd_bc="bc_vd_ne2000.bc"
+elif [ $CRETE_TARGET_VD == "PCNET" ]; then
+    target_vd_bc="bc_vd_pcnet-pci.bc"
 fi
 
 
