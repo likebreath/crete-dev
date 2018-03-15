@@ -3341,6 +3341,101 @@ static vector<VDStateElement> compuate_side_effect_PCNETState(const uint8_t *ref
     return ret;
 }
 
+// VDState: RTL8139State
+// List of PCNetState being ignored
+//  Element:                            Reason
+// +--------------------------------+----------------------------+
+// NICState *nic;                     Pointer
+// *cplus_txbuffer;
+// *timer
+static vector<VDStateElement> compuate_side_effect_RTL8139State(const uint8_t *reference,
+        const uint8_t *target) {
+    vector<VDStateElement> ret;
+    ret.clear();
+
+    uint64_t base_offset;
+    uint64_t offset;
+    uint64_t size;
+    vector<uint8_t> data;
+    bool valid;
+
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("parent_obj");
+
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT_ARRAY("phys", 8);
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT_ARRAY("mult", 8);
+
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT_ARRAY("TxStatus", 4);
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT_ARRAY("TxAddr", 4);
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("RxBuf");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("RxBufferSize");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("RxBufPtr");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("RxBufAddr");
+
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("IntrStatus");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("IntrMask");
+
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("TxConfig");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("RxConfig");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("RxMissed");
+
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("CSCR");
+
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("Cfg9346");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("Config0");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("Config1");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("Config3");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("Config4");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("Config5");
+
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("clock_enabled");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("bChipCmdState");
+
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("MultiIntr");
+
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("BasicModeCtrl");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("BasicModeStatus");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("NWayAdvert");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("NWayLPAR");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("NWayExpansion");
+
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("CpCmd");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("TxThresh");
+
+//    __CRETE_CALC_VDSTATE_SIDE_EFFECT("*nic");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("conf");
+
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("currTxDesc");
+
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("cplus_enabled");
+
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("currCPlusRxDesc");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("currCPlusTxDesc");
+
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("RxRingAddrLO");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("RxRingAddrHI");
+
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("eeprom");
+
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("TCTR");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("TimerInt");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("TCTR_base");
+
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("tally_counters");
+
+//    __CRETE_CALC_VDSTATE_SIDE_EFFECT("*cplus_txbuffer");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("cplus_txbuffer_len");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("cplus_txbuffer_offset");
+
+//    __CRETE_CALC_VDSTATE_SIDE_EFFECT("*timer");
+
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("bar_io");
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("bar_mem");
+
+    __CRETE_CALC_VDSTATE_SIDE_EFFECT("rtl8139_mmio_io_addr_dummy");
+
+    return ret;
+}
+
 // VDState
 static vector<VDStateElement> compuate_side_effect_VDState(const uint8_t *reference,
         const uint8_t *target) {
@@ -3352,6 +3447,8 @@ static vector<VDStateElement> compuate_side_effect_VDState(const uint8_t *refere
     return compuate_side_effect_NE2000State(reference, target);
 #elif defined(CRETE_VD_PCNET)
     return compuate_side_effect_PCNETState(reference, target);
+#elif defined(CRETE_VD_RTL8139)
+    return compuate_side_effect_RTL8139State(reference, target);
 #else
 #error NO TARGET VIRTUAL DEVICE IS SPECIFIED: CRETE_VD_E1000 AND CRETE_VD_EEPRO100 ARE SUPPORTED
 #endif

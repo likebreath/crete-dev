@@ -60,15 +60,6 @@
 #include "sysemu/sysemu.h"
 #include "qemu/iov.h"
 
-#if defined(CRETE_VD_RTL8139)
-#include "runtime-dump/crete-debug.h"
-
-void *crete_vd_instance = NULL;
-
-uint64_t crete_get_VDState_size(void);
-bool crete_get_VDState_offset(const char *field, uint64_t *offset, uint64_t *size);
-#endif
-
 /* debug RTL8139 card */
 //#define DEBUG_RTL8139 1
 
@@ -3345,10 +3336,6 @@ static const VMStateDescription vmstate_rtl8139 = {
 static void rtl8139_ioport_write(void *opaque, hwaddr addr,
                                  uint64_t val, unsigned size)
 {
-#if defined(CRETE_VD_RTL8139)
-    assert(crete_vd_instance == opaque);
-#endif
-
     switch (size) {
     case 1:
         rtl8139_io_writeb(opaque, addr, val);
@@ -3365,10 +3352,6 @@ static void rtl8139_ioport_write(void *opaque, hwaddr addr,
 static uint64_t rtl8139_ioport_read(void *opaque, hwaddr addr,
                                     unsigned size)
 {
-#if defined(CRETE_VD_RTL8139)
-    assert(crete_vd_instance == opaque);
-#endif
-
     switch (size) {
     case 1:
         return rtl8139_io_readb(opaque, addr);
@@ -3381,262 +3364,15 @@ static uint64_t rtl8139_ioport_read(void *opaque, hwaddr addr,
     return -1;
 }
 
-static const MemoryRegionOps rtl8139_io_ops = {
-    .read = rtl8139_ioport_read,
-    .write = rtl8139_ioport_write,
-    .impl = {
-        .min_access_size = 1,
-        .max_access_size = 4,
-    },
-    .endianness = DEVICE_LITTLE_ENDIAN,
-};
+extern char crete_vd_state[sizeof(RTL8139State)];
 
-static void rtl8139_timer(void *opaque)
+uint64_t dispatch_vd_op(uint64_t v_addr, uint64_t p_addr, int size, uint64_t value, int is_write)
 {
-    RTL8139State *s = opaque;
-
-    if (!s->clock_enabled)
+    if(is_write)
     {
-        DPRINTF(">>> timer: clock is not running\n");
-        return;
-    }
-
-    s->IntrStatus |= PCSTimeout;
-    rtl8139_update_irq(s);
-    rtl8139_set_next_tctr_time(s);
-}
-
-static void pci_rtl8139_uninit(PCIDevice *dev)
-{
-    RTL8139State *s = RTL8139(dev);
-
-    if (s->cplus_txbuffer) {
-        g_free(s->cplus_txbuffer);
-        s->cplus_txbuffer = NULL;
-    }
-    timer_del(s->timer);
-    timer_free(s->timer);
-    qemu_del_nic(s->nic);
-}
-
-static void rtl8139_set_link_status(NetClientState *nc)
-{
-    RTL8139State *s = qemu_get_nic_opaque(nc);
-
-    if (nc->link_down) {
-        s->BasicModeStatus &= ~0x04;
+        rtl8139_ioport_write(crete_vd_state, p_addr, value, size);
+        return 0;
     } else {
-        s->BasicModeStatus |= 0x04;
+        return rtl8139_ioport_read(crete_vd_state, p_addr, size);
     }
-
-    s->IntrStatus |= RxUnderrun;
-    rtl8139_update_irq(s);
 }
-
-static NetClientInfo net_rtl8139_info = {
-    .type = NET_CLIENT_OPTIONS_KIND_NIC,
-    .size = sizeof(NICState),
-    .can_receive = rtl8139_can_receive,
-    .receive = rtl8139_receive,
-    .link_status_changed = rtl8139_set_link_status,
-};
-
-static void pci_rtl8139_realize(PCIDevice *dev, Error **errp)
-{
-    RTL8139State *s = RTL8139(dev);
-    DeviceState *d = DEVICE(dev);
-    uint8_t *pci_conf;
-
-    pci_conf = dev->config;
-    pci_conf[PCI_INTERRUPT_PIN] = 1;    /* interrupt pin A */
-    /* TODO: start of capability list, but no capability
-     * list bit in status register, and offset 0xdc seems unused. */
-    pci_conf[PCI_CAPABILITY_LIST] = 0xdc;
-
-    memory_region_init_io(&s->bar_io, OBJECT(s), &rtl8139_io_ops, s,
-                          "rtl8139", 0x100);
-    memory_region_init_alias(&s->bar_mem, OBJECT(s), "rtl8139-mem", &s->bar_io,
-                             0, 0x100);
-
-    pci_register_bar(dev, 0, PCI_BASE_ADDRESS_SPACE_IO, &s->bar_io);
-    pci_register_bar(dev, 1, PCI_BASE_ADDRESS_SPACE_MEMORY, &s->bar_mem);
-
-    qemu_macaddr_default_if_unset(&s->conf.macaddr);
-
-    /* prepare eeprom */
-    s->eeprom.contents[0] = 0x8129;
-#if 1
-    /* PCI vendor and device ID should be mirrored here */
-    s->eeprom.contents[1] = PCI_VENDOR_ID_REALTEK;
-    s->eeprom.contents[2] = PCI_DEVICE_ID_REALTEK_8139;
-#endif
-    s->eeprom.contents[7] = s->conf.macaddr.a[0] | s->conf.macaddr.a[1] << 8;
-    s->eeprom.contents[8] = s->conf.macaddr.a[2] | s->conf.macaddr.a[3] << 8;
-    s->eeprom.contents[9] = s->conf.macaddr.a[4] | s->conf.macaddr.a[5] << 8;
-
-    s->nic = qemu_new_nic(&net_rtl8139_info, &s->conf,
-                          object_get_typename(OBJECT(dev)), d->id, s);
-    qemu_format_nic_info_str(qemu_get_queue(s->nic), s->conf.macaddr.a);
-
-    s->cplus_txbuffer = NULL;
-    s->cplus_txbuffer_len = 0;
-    s->cplus_txbuffer_offset = 0;
-
-    s->timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, rtl8139_timer, s);
-}
-
-static void rtl8139_instance_init(Object *obj)
-{
-    RTL8139State *s = RTL8139(obj);
-
-    device_add_bootindex_property(obj, &s->conf.bootindex,
-                                  "bootindex", "/ethernet-phy@0",
-                                  DEVICE(obj), NULL);
-
-#if defined(CRETE_VD_RTL8139)
-    if(!crete_vd_instance)
-    {
-        crete_vd_instance = s;
-    }
-#endif
-}
-
-static Property rtl8139_properties[] = {
-    DEFINE_NIC_PROPERTIES(RTL8139State, conf),
-    DEFINE_PROP_END_OF_LIST(),
-};
-
-static void rtl8139_class_init(ObjectClass *klass, void *data)
-{
-    DeviceClass *dc = DEVICE_CLASS(klass);
-    PCIDeviceClass *k = PCI_DEVICE_CLASS(klass);
-
-    k->realize = pci_rtl8139_realize;
-    k->exit = pci_rtl8139_uninit;
-    k->romfile = "efi-rtl8139.rom";
-    k->vendor_id = PCI_VENDOR_ID_REALTEK;
-    k->device_id = PCI_DEVICE_ID_REALTEK_8139;
-    k->revision = RTL8139_PCI_REVID; /* >=0x20 is for 8139C+ */
-    k->class_id = PCI_CLASS_NETWORK_ETHERNET;
-    dc->reset = rtl8139_reset;
-    dc->vmsd = &vmstate_rtl8139;
-    dc->props = rtl8139_properties;
-    set_bit(DEVICE_CATEGORY_NETWORK, dc->categories);
-}
-
-static const TypeInfo rtl8139_info = {
-    .name          = TYPE_RTL8139,
-    .parent        = TYPE_PCI_DEVICE,
-    .instance_size = sizeof(RTL8139State),
-    .class_init    = rtl8139_class_init,
-    .instance_init = rtl8139_instance_init,
-};
-
-static void rtl8139_register_types(void)
-{
-    type_register_static(&rtl8139_info);
-}
-
-type_init(rtl8139_register_types)
-
-#if defined(CRETE_VD_RTL8139)
-const uint64_t crete_vd_trace_accessor[] = {
-        (uint64_t)rtl8139_ioport_read,
-        (uint64_t)rtl8139_ioport_write,
-        0
-};
-
-#define VDState_OFFSET(field) offsetof(RTL8139State, field)
-
-#define ___GET_VDSTATE_OFFSET(type, ref_field)   \
-        if(!strcmp(field, #ref_field))           \
-        {                                        \
-            *offset = VDState_OFFSET(ref_field); \
-            *size = sizeof(type);                \
-            return 1;                            \
-        }
-
-uint64_t crete_get_VDState_size(void)
-{
-    return sizeof(RTL8139State);
-}
-
-bool crete_get_VDState_offset(const char *field, uint64_t *offset, uint64_t *size)
-{
-    ___GET_VDSTATE_OFFSET(PCIDevice, parent_obj);
-
-    ___GET_VDSTATE_OFFSET(uint8_t, phys);
-    ___GET_VDSTATE_OFFSET(uint8_t, mult);
-
-    ___GET_VDSTATE_OFFSET(uint32_t, TxStatus);
-    ___GET_VDSTATE_OFFSET(uint32_t, TxAddr);
-    ___GET_VDSTATE_OFFSET(uint32_t, RxBuf);
-    ___GET_VDSTATE_OFFSET(uint32_t, RxBufferSize);
-    ___GET_VDSTATE_OFFSET(uint32_t, RxBufPtr);
-    ___GET_VDSTATE_OFFSET(uint32_t, RxBufAddr);
-
-    ___GET_VDSTATE_OFFSET(uint16_t, IntrStatus);
-    ___GET_VDSTATE_OFFSET(uint16_t, IntrMask);
-
-    ___GET_VDSTATE_OFFSET(uint32_t, TxConfig);
-    ___GET_VDSTATE_OFFSET(uint32_t, RxConfig);
-    ___GET_VDSTATE_OFFSET(uint32_t, RxMissed);
-
-    ___GET_VDSTATE_OFFSET(uint16_t, CSCR);
-
-    ___GET_VDSTATE_OFFSET(uint8_t, Cfg9346);
-    ___GET_VDSTATE_OFFSET(uint8_t, Config0);
-    ___GET_VDSTATE_OFFSET(uint8_t, Config1);
-    ___GET_VDSTATE_OFFSET(uint8_t, Config3);
-    ___GET_VDSTATE_OFFSET(uint8_t, Config4);
-    ___GET_VDSTATE_OFFSET(uint8_t, Config5);
-
-    ___GET_VDSTATE_OFFSET(uint8_t, clock_enabled);
-    ___GET_VDSTATE_OFFSET(uint8_t, bChipCmdState);
-
-    ___GET_VDSTATE_OFFSET(uint16_t, MultiIntr);
-
-    ___GET_VDSTATE_OFFSET(uint16_t, BasicModeCtrl);
-    ___GET_VDSTATE_OFFSET(uint16_t, BasicModeStatus);
-    ___GET_VDSTATE_OFFSET(uint16_t, NWayAdvert);
-    ___GET_VDSTATE_OFFSET(uint16_t, NWayLPAR);
-    ___GET_VDSTATE_OFFSET(uint16_t, NWayExpansion);
-
-    ___GET_VDSTATE_OFFSET(uint16_t, CpCmd);
-    ___GET_VDSTATE_OFFSET(uint8_t, TxThresh);
-
-    ___GET_VDSTATE_OFFSET(NICState *, nic);
-    ___GET_VDSTATE_OFFSET(NICConf, conf);
-
-    ___GET_VDSTATE_OFFSET(uint32_t, currTxDesc);
-
-    ___GET_VDSTATE_OFFSET(uint32_t, cplus_enabled);
-
-    ___GET_VDSTATE_OFFSET(uint32_t, currCPlusRxDesc);
-    ___GET_VDSTATE_OFFSET(uint32_t, currCPlusTxDesc);
-
-    ___GET_VDSTATE_OFFSET(uint32_t, RxRingAddrLO);
-    ___GET_VDSTATE_OFFSET(uint32_t, RxRingAddrHI);
-
-    ___GET_VDSTATE_OFFSET(EEprom9346, eeprom);
-
-    ___GET_VDSTATE_OFFSET(uint32_t, TCTR);
-    ___GET_VDSTATE_OFFSET(uint32_t, TimerInt);
-    ___GET_VDSTATE_OFFSET(int64_t, TCTR_base);
-
-    ___GET_VDSTATE_OFFSET(RTL8139TallyCounters, tally_counters);
-
-    ___GET_VDSTATE_OFFSET(uint8_t *, cplus_txbuffer);
-    ___GET_VDSTATE_OFFSET(int, cplus_txbuffer_len);
-    ___GET_VDSTATE_OFFSET(int, cplus_txbuffer_offset);
-
-    ___GET_VDSTATE_OFFSET(QEMUTimer *, timer);
-
-    ___GET_VDSTATE_OFFSET(MemoryRegion, bar_io);
-    ___GET_VDSTATE_OFFSET(MemoryRegion, bar_mem);
-
-    ___GET_VDSTATE_OFFSET(int, rtl8139_mmio_io_addr_dummy);
-
-    return 0;
-}
-#endif

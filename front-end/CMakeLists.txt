@@ -12,8 +12,10 @@ elseif(${CRETE_TARGET_VD} STREQUAL "NE2000")
   set(QEMU_VD_FLAG "CRETE_VD_NE2000")
 elseif(${CRETE_TARGET_VD} STREQUAL "PCNET")
   set(QEMU_VD_FLAG "CRETE_VD_PCNET")
+elseif(${CRETE_TARGET_VD} STREQUAL "RTL8139")
+  set(QEMU_VD_FLAG "CRETE_VD_RTL8139")
 else()
-  message (FATAL_ERROR "CRETE_TARGET_VD is not set corrected: only 'E1000', 'EEPRO100', 'NE2000', and 'PCNET' supported")
+  message (FATAL_ERROR "CRETE_TARGET_VD is not set corrected: only 'E1000', 'EEPRO100', 'NE2000', 'PCNET', and 'RTL8139' supported")
 endif()
 
 ExternalProject_Add(
