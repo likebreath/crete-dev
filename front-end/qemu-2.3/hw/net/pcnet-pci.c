@@ -467,5 +467,7 @@ bool crete_get_VDState_offset(const char *field, uint64_t *offset, uint64_t *siz
     ___GET_VDSTATE_OFFSET(void *, dma_opaque);
     ___GET_VDSTATE_OFFSET(int, tx_busy);
     ___GET_VDSTATE_OFFSET(int, looptest);
+
+    return 0;
 }
 #endif
