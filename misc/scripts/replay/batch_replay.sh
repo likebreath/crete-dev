@@ -9,6 +9,7 @@
 ##     LCOV_DIR: the path to the root folder of calculating coverage
 ##     PROGRAMS: the name of programs under replay
 ##     SANDBOX: the path of input sandbox (optional)
+##     POST_REPLAY: the path of post-replay-cmds (optional)
 
 INPUT_DIR=$1
 INCLUDE_FILE=$2
@@ -132,6 +133,9 @@ main()
 
         # prepare command-line for crete-tc-replay with different situations
         REPLAY_CMD="-e $PROG_DIR/$target_prog -c $config_file_path -t $test_case_dir"
+        if [ ! -z $POST_REPLAY ]; then
+            REPLAY_CMD="$REPLAY_CMD -p $POST_REPLAY"
+        fi
 
         if [ ! -z  $SANDBOX ]; then
             if [ ! -d  $SANDBOX ]; then

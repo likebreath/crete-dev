@@ -58,6 +58,7 @@ po::options_description CreteReplay::make_options()
 
         ("auto-replay,a", po::value<fs::path>(), "enable automatic replay on system start with given input folder (crete-dispatch output folder)")
         ("clear-auto-replay", po::bool_switch(), "clear the auto-replay for the given input folder")
+        ("post-replay-script,p", po::value<fs::path>(), "path to the script to execute after replay everty test case")
         ;
 
     return desc;
@@ -204,6 +205,28 @@ void CreteReplay::process_options(int argc, char* argv[])
             BOOST_THROW_EXCEPTION(Exception() << err::file_missing(p.string()));
         }
         m_exploitable_script = p;
+    }
+
+    if(m_var_map.count("post-replay-script"))
+    {
+        fs::path ps_path = m_var_map["post-replay-script"].as<fs::path>();
+        if(!fs::exists(ps_path))
+        {
+            BOOST_THROW_EXCEPTION(std::runtime_error("'post-replay-script' not found: "
+                    + ps_path.generic_string()));
+        }
+
+        ifstream i_os(ps_path.string().c_str());
+        string line;
+        while(getline(i_os, line))
+        {
+            if(!line.empty())
+            {
+                m_post_replay_cmds.push_back(line);
+            }
+        }
+
+        i_os.close();
     }
 
     if(!fs::exists(m_tc_dir))
@@ -555,6 +578,9 @@ void CreteReplay::setup_launch()
 
     m_launch_ctx_secondary = m_launch_ctx;
     m_secondary_cmds = guest_config.get_secondary_cmds();
+
+    m_launch_ctx_post_replay = m_launch_ctx;
+    m_launch_ctx_post_replay.environment.erase("LD_PRELOAD");
 }
 
 // Get current date/time, format is YYYY-MM-DD.HH:mm:ss
@@ -930,7 +956,19 @@ void CreteReplay::replay()
                 bool cmd_executed = execute_command_line(*it, m_launch_ctx_secondary, ofs_replay_log);
                 if(!cmd_executed)
                 {
-                    ofs_replay_log << "[CRETE Warning][crete-replay] \'" << it->c_str() << "\' executed unsuccessfully.\n";
+                    ofs_replay_log << "[CRETE Warning][crete-replay] secondary_cmds: \'" << it->c_str() << "\' executed unsuccessfully.\n";
+                }
+            }
+        }
+
+        {
+            unsigned int sec_cmd_count = 1;
+            for(vector<string>::const_iterator it = m_post_replay_cmds.begin();
+                    it != m_post_replay_cmds.end(); ++it) {
+                bool cmd_executed = execute_command_line(*it, m_launch_ctx_post_replay, ofs_replay_log);
+                if(!cmd_executed)
+                {
+                    ofs_replay_log << "[CRETE Warning][crete-replay] post-replay-cmds:\'" << it->c_str() << "\' executed unsuccessfully.\n";
                 }
             }
         }

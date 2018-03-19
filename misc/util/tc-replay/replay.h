@@ -38,6 +38,9 @@ private:
     bp::posix_context m_launch_ctx_secondary;
     vector<string> m_secondary_cmds;
 
+    vector<string> m_post_replay_cmds;
+    bp::posix_context m_launch_ctx_post_replay;
+
     fs::path m_input_sandbox;
     fs::path m_input_launch;
 
