@@ -648,7 +648,7 @@ void CreteReplay::collect_gcov_result()
 }
 
 static unsigned monitored_pid = 0;
-static unsigned monitored_timeout = 3;
+static unsigned monitored_timeout = 15;
 
 static void timeout_handler(int signum)
 {
