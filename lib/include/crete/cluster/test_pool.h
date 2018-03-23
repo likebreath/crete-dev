@@ -56,12 +56,17 @@ private:
     uint64_t tc_count_;
 
     TestQueue next_;
+    queue<TestCase> m_preferred_tcs;
+
     boost::unordered_set<UniqueTestIdentifier> issued_tc_hash_pool_;
     BaseTestCache_ty base_tc_cache_;
+    boost::unordered_set<TestTraceTagID> tc_tt_id_pool_;
 
     // debug
     uint64_t m_duplicated_tc_count;
     uint64_t m_meaningless_tc_count;
+    uint64_t m_preferred_tc_count;
+    uint64_t m_duplicated_preferred_tc_count;
 
 public:
     TestPool(const fs::path& root);

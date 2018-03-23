@@ -56,6 +56,10 @@ namespace crete
     // <index within an tc element, value>
 
     typedef std::vector<std::pair<uint32_t, uint8_t> > tcpe_data_ty;
+
+    // |<-- 8 bits -->|<-- 56 bits -->|
+    // |    br_index  |    tb-pc      |
+    typedef uint64_t TestTraceTagID;
     struct TestCasePatchElement_ty
     {
         std::string name;
@@ -107,6 +111,9 @@ namespace crete
         TestCaseIssueIndex get_issue_index() const;
         void set_issue_index(TestCaseIssueIndex index);
 
+        void set_tt_id(uint64_t pc, uint8_t br_index);
+        TestTraceTagID get_tt_id() const;
+
         void print() const;
 
         friend bool check_tc_elems_meaningfulness(TestCase &tc);
@@ -133,6 +140,8 @@ namespace crete
             ar & m_explored_nodes;
             ar & m_semi_explored_node;
             ar & m_new_nodes;
+
+            ar & m_tt_id;
         }
 
         bool operator==(TestCase const& other) const
@@ -158,6 +167,8 @@ namespace crete
         creteTraceTag_ty m_explored_nodes;
         creteTraceTag_ty m_semi_explored_node;
         creteTraceTag_ty m_new_nodes;
+
+        TestTraceTagID m_tt_id;
     };
 
     std::ostream& operator<<(std::ostream& os, const TestCaseElement& elem);

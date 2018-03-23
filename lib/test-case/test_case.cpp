@@ -270,7 +270,8 @@ namespace crete
         m_patch(false),
         m_issue_index(0),
         m_base_tc_issue_index(0),
-        m_from_captured_br(true)
+        m_from_captured_br(true),
+        m_tt_id(0)
     {
     }
 
@@ -284,7 +285,8 @@ namespace crete
      m_tcp_elems(tcp_elems),
      m_issue_index(0),
      m_base_tc_issue_index(base_tc_issue_index),
-     m_from_captured_br(from_captured_br)
+     m_from_captured_br(from_captured_br),
+     m_tt_id(0)
     {}
 
     TestCase::TestCase(const TestCase& tc)
@@ -298,7 +300,8 @@ namespace crete
      elems_(tc.elems_),
      m_explored_nodes(tc.m_explored_nodes),
      m_semi_explored_node(tc.m_semi_explored_node),
-     m_new_nodes(tc.m_new_nodes)
+     m_new_nodes(tc.m_new_nodes),
+     m_tt_id(tc.m_tt_id)
     {}
 
 
@@ -396,6 +399,19 @@ namespace crete
                     (int)valid_m_semi_explored_node, (int)valid_m_new_nodes);
             assert(0);
         }
+    }
+
+    void TestCase::set_tt_id(uint64_t pc, uint8_t br_index)
+    {
+        assert(!(pc >> 56) &&
+                "[CRETE ERROR] Assumption broken: top 8 bits of tb-pc is non-zero, can't be resued as br_taken_info\n");
+
+        m_tt_id = ((uint64_t)br_index << 56) | pc;
+    }
+
+    TestTraceTagID TestCase::get_tt_id() const
+    {
+        return m_tt_id;
     }
 
     void TestCase::print() const

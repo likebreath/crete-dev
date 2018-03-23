@@ -43,12 +43,25 @@ TestPool::TestPool(const fs::path& root)
     ,tc_count_(0)
     ,next_(TestPriority(BFS))
     ,m_duplicated_tc_count(0)
-    ,m_meaningless_tc_count(0) {}
+    ,m_meaningless_tc_count(0)
+    ,m_preferred_tc_count(0)
+    ,m_duplicated_preferred_tc_count(0) {}
 
 auto TestPool::next() -> boost::optional<TestCase>
 {
     boost::optional<TestCase> ret;
     assert(!ret);
+
+    while(!m_preferred_tcs.empty() && !ret)
+    {
+        ret = get_complete_tc(m_preferred_tcs.front());
+        m_preferred_tcs.pop();
+
+        if(ret)
+            return ret;
+        else
+            ++m_duplicated_preferred_tc_count;
+    }
 
     // XXX: Iterate until a non-duplicate test case is found
     while(!next_.empty() && !ret)
@@ -114,18 +127,26 @@ auto TestPool::count_all() const -> size_t
 
 auto TestPool::count_next() const -> size_t
 {
-    return next_.size();
+    return next_.size() + m_preferred_tcs.size();
 }
 
 auto TestPool::write_log(std::ostream& os) -> void
 {
     os << "duplicated tc count from all_: " << m_duplicated_tc_count << endl
+       << "m_preferred_tc_count: " << m_preferred_tc_count << endl
+       << "m_duplicated_preferred_tc_count: " << m_duplicated_preferred_tc_count << endl
        << "meaningless tc count: " << m_meaningless_tc_count << endl;
 }
 
 auto TestPool::insert_internal(const TestCase& tc) -> bool
 {
-    next_.push(tc);
+    if(tc_tt_id_pool_.insert(tc.get_tt_id()).second)
+    {
+        m_preferred_tcs.push(tc);
+        write_test_case(tc, root_ / "test-case-preferred-tc" / (std::to_string(tc.get_tt_id()) + '_' + std::to_string(++m_preferred_tc_count)));
+    } else {
+        next_.push(tc);
+    }
 
     write_test_case(tc, root_ / "test-case" / std::to_string(++tc_count_));
 
