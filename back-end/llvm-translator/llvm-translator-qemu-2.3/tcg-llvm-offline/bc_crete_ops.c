@@ -3,6 +3,8 @@
 
 void crete_enable_fork();
 void crete_disable_fork();
+void crete_enable_symbolic_execution();
+void crete_disable_symbolic_execution();
 
 struct CPUStateElement
 {
@@ -139,8 +141,11 @@ uint64_t crete_try_device_memory_access(uint64_t addr, int size, uint64_t value,
         crete_bc_print("symbolic input 'addr' !");
     }
 #endif
+    crete_enable_symbolic_execution();
+    uint64_t ret = dispatch_vd_op(addr, current_vd_op->m_phys_addr, size, value, is_write);
+    crete_disable_symbolic_execution();
 
-    return dispatch_vd_op(addr, current_vd_op->m_phys_addr, size, value, is_write);
+    return ret;
 }
 
 typedef struct CPUStateElement VDStateElement;

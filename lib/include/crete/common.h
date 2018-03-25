@@ -18,6 +18,7 @@ static const char *CRETE_REPLAY_GCOV_PREFIX = "/tmp/gcov";
 static const char *CRETE_REPLAY_PROCFS = "crete-replay-procfs";
 
 static const char *CRETE_SVM_TEST_FOLDER = "crete_svm_test_pool";
+static const char *CRETE_SVM_TEST_FOLDER_SE = "crete_svm_test_pool_se";
 
 // CUSTOMIZED EXIT CODE
 static const int CRETE_EXIT_CODE_SIG_BASE = 30;
