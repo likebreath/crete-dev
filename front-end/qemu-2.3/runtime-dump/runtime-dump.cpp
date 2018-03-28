@@ -145,6 +145,8 @@ public:
             m_op_index.push_back(qklee_get_vd_op_index());
             m_vd_table.push_back(make_pair(vaddr, physaddr));
 
+            crete_tci_mark_block_symbolic();
+
             CRETE_DBG_VDT(
             fprintf(stderr, "[CRETE_DBG_VDT] add_op_index(): added "
                     "[vaddr = %p, physaddr = %p, size = %u, value = %lu, is_write = %d, accessor = %p]\n",
