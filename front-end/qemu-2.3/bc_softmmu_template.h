@@ -220,8 +220,8 @@ void helper_le_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
 {
     int is_device_access;
     crete_try_device_memory_access(addr, DATA_SIZE, val, 1, &is_device_access);
-    if(is_device_access)
-        return;
+//    if(is_device_access)
+//        return;
 
     uint64_t dynamic_addr = crete_get_dynamic_addr(addr);
 #if DATA_SIZE == 1
@@ -237,8 +237,8 @@ void helper_be_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
 {
     int is_device_access;
     crete_try_device_memory_access(addr, DATA_SIZE, val, 1, &is_device_access);
-    if(is_device_access)
-        return;
+//    if(is_device_access)
+//        return;
 
     // TODO: xxx BE (should not need to reverse the address,
     //               as long as it stay consistent wit memory monitoring)

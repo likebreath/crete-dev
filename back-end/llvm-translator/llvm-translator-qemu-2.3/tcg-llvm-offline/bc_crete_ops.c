@@ -130,7 +130,7 @@ uint64_t crete_try_device_memory_access(uint64_t addr, int size, uint64_t value,
     *is_device_access = 1;
 
 #if defined(CRETE_BC_DEBUG) || 1
-    crete_bc_print("calling dispatch_vd_op():");
+//    crete_bc_print("calling dispatch_vd_op():");
 
     if(crete_is_symbolic(value))
     {
