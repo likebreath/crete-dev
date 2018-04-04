@@ -49,6 +49,8 @@
 #include "sysemu/dma.h"
 #include "qemu/bitops.h"
 
+#include "runtime-dump/bc_crete_dma.h"
+
 /* QEMU sends frames smaller than 60 bytes to ethernet nics.
  * Such frames are rejected by real nics and their emulations.
  * To avoid this behaviour, other nic emulations pad received
@@ -407,7 +409,7 @@ static void disable_interrupt(EEPRO100State * s)
 {
     if (s->int_stat) {
         TRACE(INT, logout("interrupt disabled\n"));
-        pci_irq_deassert(&s->dev);
+//        pci_irq_deassert(&s->dev);
         s->int_stat = 0;
     }
 }
@@ -416,7 +418,7 @@ static void enable_interrupt(EEPRO100State * s)
 {
     if (!s->int_stat) {
         TRACE(INT, logout("interrupt enabled\n"));
-        pci_irq_assert(&s->dev);
+//        pci_irq_assert(&s->dev);
         s->int_stat = 1;
     }
 }
