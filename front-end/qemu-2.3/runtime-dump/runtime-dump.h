@@ -423,6 +423,7 @@ private:
     void writeConcolics();
 
     // Memory Monitoring
+    void addCurrentMemoSyncTableEntryByte(uint64_t addr, uint8_t byte_value);
     void writeMemoSyncTables();
     // Old MM
     void debug_mergeMemoSyncTables();
