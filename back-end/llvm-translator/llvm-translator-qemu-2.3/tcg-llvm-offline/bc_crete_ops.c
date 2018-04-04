@@ -1,5 +1,6 @@
 #include "stdint.h"
 #include "stdbool.h"
+#include "string.h"
 
 void crete_enable_fork();
 void crete_disable_fork();
@@ -82,7 +83,7 @@ struct VirtualDeviceOps
 const struct VirtualDeviceOps *vd_ops_table;
 uint32_t vd_ops_table_size;
 
-static const struct VirtualDeviceOps *get_current_vd_op(uint64_t addr)
+static const struct VirtualDeviceOps *get_current_vd_entry_func_op(uint64_t addr)
 {
     const struct VirtualDeviceOps *current_vd_op;
     for(uint32_t i = 0; i < vd_ops_table_size; ++i)
@@ -96,6 +97,22 @@ static const struct VirtualDeviceOps *get_current_vd_op(uint64_t addr)
 
     return 0;
 }
+
+static const struct VirtualDeviceOps *get_current_vd_dma_op(uint64_t dma_addr)
+{
+    const struct VirtualDeviceOps *current_vd_op;
+    for(uint32_t i = 0; i < vd_ops_table_size; ++i)
+    {
+        current_vd_op = vd_ops_table + i;
+        if(dma_addr == current_vd_op->m_phys_addr)
+        {
+            return current_vd_op;
+        }
+    }
+
+    return 0;
+}
+
 __attribute__((noinline)) static void internal_crete_sync_device(
         const struct VirtualDeviceOps *sync_table, uint32_t st_size)
 {
@@ -118,7 +135,7 @@ extern bool crete_is_symbolic(uint64_t);
 uint64_t crete_try_device_memory_access(uint64_t addr, int size, uint64_t value, int is_write, int *is_device_access)
 {
     crete_disable_fork();
-    const struct VirtualDeviceOps *current_vd_op = get_current_vd_op(addr);
+    const struct VirtualDeviceOps *current_vd_op = get_current_vd_entry_func_op(addr);
     if(!current_vd_op)
     {
         *is_device_access = 0;
@@ -155,4 +172,53 @@ void crete_sync_vd_state(uint8_t *vd_state, uint32_t es_size,
     crete_disable_fork();
     internal_sync_cpu_state(vd_state, es_size, sync_table, st_size);
     crete_enable_fork();
+}
+
+bool crete_replay_dma(uint64_t dma_addr, uint8_t *buf, int len, bool is_write)
+{
+    crete_disable_fork();
+
+    const struct VirtualDeviceOps *current_vd_op = get_current_vd_dma_op(dma_addr);
+    if(!current_vd_op)
+    {
+        crete_enable_fork();
+        return false;
+    }
+
+    uint64_t guest_virt_addr = current_vd_op->m_virt_addr;
+    uint64_t dynamic_addr = crete_get_dynamic_addr(guest_virt_addr);
+
+    {
+        uint8_t *check_symbolic;
+        if(is_write)
+        {
+            check_symbolic = buf;
+        } else {
+            check_symbolic = (uint8_t *)dynamic_addr;
+        }
+
+        for(int i = 0; i < len; ++i)
+        {
+            if(crete_is_symbolic(*(check_symbolic+i)))
+            {
+                if(is_write)
+                {
+                    crete_bc_print("crete_replay_dma(): symbolic dma write (dev -> ram)!");
+                } else {
+                    crete_bc_print("crete_replay_dma(): symbolic dma read (ram -> dma)!");
+                }
+            }
+        }
+    }
+
+    if(is_write)
+    {
+        memcpy((void *)dynamic_addr, buf, len);
+    } else {
+        memcpy(buf, (void *)dynamic_addr, len);
+    }
+
+    crete_enable_fork();
+
+    return true;
 }

@@ -145,6 +145,12 @@ public:
         }
     }
 
+    void add_dma_ops_info(uint64_t vaddr, uint64_t physaddr,
+            int len, bool is_write)
+    {
+        m_vd_table.push_back(make_pair(vaddr, physaddr));
+    }
+
     void clear()
     {
         m_vd_table.clear();
@@ -366,6 +372,50 @@ void RuntimeEnv::printDebugCpuStateSyncTable(const string name) const
         }
     }
     cerr << "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n";
+}
+
+void RuntimeEnv::add_host_guest_addr_map(uint64_t host_virt_addr, uint64_t guest_virt_addr)
+{
+    // Note: guest_virt_addr is TARGET_PAGE_SIZE aligned, while host_virt_addr may not
+    m_host_guest_page_map[host_virt_addr] = guest_virt_addr;
+}
+
+void RuntimeEnv::dump_vd_dma_info(uint64_t guest_phy_addr, uint64_t host_virt_addr,
+        uint8_t *buf, int len, bool is_write) {
+    bool found = false;
+
+    for(host_guest_addr_map_ty::const_iterator it = m_host_guest_page_map.begin(),
+            ite = m_host_guest_page_map.end(); it != ite; ++it) {
+        uint64_t page_host_virt_addr = it->first;
+        if(host_virt_addr < page_host_virt_addr)
+            continue;
+
+        uint64_t page_offset = host_virt_addr - page_host_virt_addr;
+        if(page_offset >= TARGET_PAGE_SIZE)
+            continue;
+
+        found = true;
+
+        // Get guest virtual address
+        assert((page_offset+len) <= TARGET_PAGE_SIZE);
+        uint64_t page_guest_virt_addr = it->second;
+        uint64_t guest_virt_addr = page_guest_virt_addr + page_offset;
+
+        // Capture dma information, mainly the map between guest virtual address an guest physical address
+        vd_ops_info.add_dma_ops_info(guest_virt_addr, guest_phy_addr, len, is_write);
+
+        // For dma read (ram -> device), capture ram value as read operations
+        if(!is_write)
+        {
+            for(int i = 0; i < len; ++i)
+            {
+                assert(*(buf + i) == *(uint8_t *)(host_virt_addr + i));
+                addCurrentMemoSyncTableEntryByte(guest_virt_addr + i, *(uint8_t *)(host_virt_addr + i));
+            }
+        }
+    }
+
+    assert(found && "[CRETE ERROR] Can get guest virtual address with given host_virtual_address/guest_physical address!\n");
 }
 
 void RuntimeEnv::addCurrentMemoSyncTableEntry(uint64_t addr, uint32_t size, uint64_t value)
@@ -2505,6 +2555,16 @@ void dump_memo_sync_table_entry(struct RuntimeEnv *rt, uint64_t addr, uint32_t s
 #endif
 
     rt->addCurrentMemoSyncTableEntry(addr, size, value);
+}
+
+void crete_add_host_guest_address_map(struct RuntimeEnv *rt, uint64_t host_virt_addr, uint64_t guest_virt_addr)
+{
+    rt->add_host_guest_addr_map(host_virt_addr, guest_virt_addr);
+}
+
+void crete_dump_vd_dma_info(uint64_t guest_phy_addr, uint64_t host_virt_addr,
+        uint8_t *buf, int len, bool is_write) {
+    runtime_env->dump_vd_dma_info(guest_phy_addr, host_virt_addr, buf, len, is_write);
 }
 
 void crete_add_vd_trace_marker_op_index(uint64_t vaddr, uint64_t physaddr,

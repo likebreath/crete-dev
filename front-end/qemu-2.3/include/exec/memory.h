@@ -1066,6 +1066,10 @@ void address_space_destroy(AddressSpace *as);
 bool address_space_rw(AddressSpace *as, hwaddr addr, uint8_t *buf,
                       int len, bool is_write);
 
+#if defined(CRETE_CONFIG) || 1
+bool crete_dma_address_space_rw(void *as, hwaddr addr, uint8_t *buf,
+        int len, bool is_write);
+#endif
 /**
  * address_space_write: write to address space.
  *

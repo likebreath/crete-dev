@@ -300,6 +300,10 @@ WORD_TYPE helper_le_ld_name(CPUArchState *env, target_ulong addr, int mmu_idx,
                     (void *)(uint64_t)addr, (uint32_t)DATA_SIZE, (uint64_t)res);
 #endif // defined(CRETE_DEBUG)
             dump_memo_sync_table_entry(runtime_env, addr, DATA_SIZE, res);
+
+            uint64_t page_guest_v_addr = addr & TARGET_PAGE_MASK;
+            uint64_t page_host_v_addr = page_guest_v_addr +  env->tlb_table[mmu_idx][index].addend;
+            crete_add_host_guest_address_map(runtime_env, page_host_v_addr, page_guest_v_addr);
         }
 #endif // #if defined(CRETE_ENABLE_MEMORY_MONITOR)
 
@@ -430,6 +434,10 @@ WORD_TYPE helper_be_ld_name(CPUArchState *env, target_ulong addr, int mmu_idx,
             assert(0 && "[Ld Memo Monitor] be\n");
 #endif // defined(CRETE_DEBUG)
             dump_memo_sync_table_entry(runtime_env, addr, DATA_SIZE, res);
+
+            uint64_t page_guest_v_addr = addr & TARGET_PAGE_MASK;
+            uint64_t page_host_v_addr = page_guest_v_addr +  env->tlb_table[mmu_idx][index].addend;
+            crete_add_host_guest_address_map(runtime_env, page_host_v_addr, page_guest_v_addr);
         }
 #endif // #if defined(CRETE_ENABLE_MEMORY_MONITOR)
 
@@ -593,6 +601,14 @@ void helper_le_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
     glue(glue(st, SUFFIX), _le_p)((uint8_t *)haddr, val);
 #endif
 
+#if defined(CRETE_ENABLE_MEMORY_MONITOR)
+    if(flag_rt_dump_enable) {
+        uint64_t page_guest_v_addr = addr & TARGET_PAGE_MASK;
+        uint64_t page_host_v_addr = page_guest_v_addr +  env->tlb_table[mmu_idx][index].addend;
+        crete_add_host_guest_address_map(runtime_env, page_host_v_addr, page_guest_v_addr);
+    }
+#endif // #if defined(CRETE_ENABLE_MEMORY_MONITOR)
+
 #if defined(CRETE_DBG_TA)
     {
         uint64_t i = 0;
@@ -684,6 +700,14 @@ void helper_be_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
 
     haddr = addr + env->tlb_table[mmu_idx][index].addend;
     glue(glue(st, SUFFIX), _be_p)((uint8_t *)haddr, val);
+
+#if defined(CRETE_ENABLE_MEMORY_MONITOR)
+    if(flag_rt_dump_enable) {
+        uint64_t page_guest_v_addr = addr & TARGET_PAGE_MASK;
+        uint64_t page_host_v_addr = page_guest_v_addr +  env->tlb_table[mmu_idx][index].addend;
+        crete_add_host_guest_address_map(runtime_env, page_host_v_addr, page_guest_v_addr);
+    }
+#endif // #if defined(CRETE_ENABLE_MEMORY_MONITOR)
 
 #if defined(CRETE_DBG_TA)
     {

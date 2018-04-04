@@ -88,7 +88,11 @@ static inline int dma_memory_rw_relaxed(AddressSpace *as, dma_addr_t addr,
                                         void *buf, dma_addr_t len,
                                         DMADirection dir)
 {
+#if defined(CRETE_CONFIG) || 1
+    return crete_dma_address_space_rw(as, addr, buf, len, dir == DMA_DIRECTION_FROM_DEVICE);
+#else
     return address_space_rw(as, addr, buf, len, dir == DMA_DIRECTION_FROM_DEVICE);
+#endif
 }
 
 static inline int dma_memory_read_relaxed(AddressSpace *as, dma_addr_t addr,

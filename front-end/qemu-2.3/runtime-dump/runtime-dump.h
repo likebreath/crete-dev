@@ -57,6 +57,11 @@ int  crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb,
 void dump_memo_sync_table_entry(struct RuntimeEnv *rt, uint64_t addr,
 		uint32_t size, uint64_t value);
 
+void crete_add_host_guest_address_map(struct RuntimeEnv *rt,
+        uint64_t host_virt_addr, uint64_t guest_virt_addr);
+void crete_dump_vd_dma_info(uint64_t guest_phy_addr, uint64_t host_virt_addr,
+        uint8_t *buf, int len, bool is_write);
+
 void crete_add_vd_trace_marker_op_index(uint64_t vaddr, uint64_t physaddr,
         uint32_t size, uint64_t value, int is_write, uint64_t accessor);
 
@@ -222,6 +227,9 @@ typedef map<string, CreteMemoInfo> creteConcolics_ty;
 typedef vector<pair<uint64_t, uint64_t> > creteVDTable_ty;
 typedef vector<creteVDTable_ty> creteVDTables_ty;
 
+//<host_virt_addr, guest_virt_addr>
+typedef map<uint64_t, uint64_t> host_guest_addr_map_ty;
+
 class RuntimeEnv
 {
 private:
@@ -258,6 +266,8 @@ private:
     memoSyncTables_ty m_memoSyncTables;
     memoSyncTable_ty m_currentMemoSyncTable;
     uint64_t m_mergePoint_memoSyncTables;
+
+    host_guest_addr_map_ty m_host_guest_page_map;
 
     // Memory state, being captured on-the-fly by monitoring memory operations of interested TBs
     // Each entry stores all load memory operations for each unique addr for each interested TB
@@ -346,6 +356,11 @@ public:
 
     void addDebugCpuStateSyncTable(void *qemuCpuState);
     void printDebugCpuStateSyncTable(const string name) const;
+
+    // VD DMA
+    void add_host_guest_addr_map(uint64_t host_virt_addr, uint64_t guest_virt_addr);
+    void dump_vd_dma_info(uint64_t guest_phy_addr, uint64_t host_virt_addr,
+            uint8_t *buf, int len, bool is_write);
 
     // Memory monitor
     void addCurrentMemoSyncTableEntry(uint64_t addr, uint32_t size, uint64_t value);

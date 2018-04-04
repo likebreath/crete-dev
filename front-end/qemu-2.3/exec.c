@@ -2412,6 +2412,55 @@ bool address_space_rw(AddressSpace *as, hwaddr addr, uint8_t *buf,
     return error;
 }
 
+#if defined(CRETE_CONFIG) || 1
+
+void crete_dump_vd_dma_info(uint64_t guest_phy_addr, uint64_t host_virt_addr, uint8_t *buf, int len, bool is_write);
+
+bool crete_dma_address_space_rw(void *_as, hwaddr addr, uint8_t *buf,
+        int len, bool is_write)
+{
+    hwaddr l;
+    uint8_t *ptr;
+    uint64_t val;
+    hwaddr addr1;
+    MemoryRegion *mr;
+    bool error = false;
+
+    AddressSpace *as = (AddressSpace *)_as;
+
+    l = len;
+    mr = address_space_translate(as, addr, &addr1, &l, is_write);
+
+    assert(l == len);
+    assert(memory_access_is_direct(mr, is_write));
+
+    if (is_write) {
+        addr1 += memory_region_get_ram_addr(mr);
+        /* RAM case */
+        ptr = qemu_get_ram_ptr(addr1);
+        memcpy(ptr, buf, l);
+        invalidate_and_set_dirty(addr1, l);
+    } else {
+        /* RAM case */
+        ptr = qemu_get_ram_ptr(mr->ram_addr + addr1);
+        memcpy(buf, ptr, l);
+    }
+
+    assert(addr1 == addr);
+    if(flag_rt_dump_enable)
+    {
+        fprintf(stderr, "address_space_rw(): input addr (physical address) = %p, len = %d, l = %d\n"
+                "addr1 (xlated addr = %p), ptr (host v_addr)= %p\n",
+                (void *)addr, len, l,
+                (void *)addr1, ptr);
+
+        crete_dump_vd_dma_info(addr, ptr, buf, len, is_write);
+    }
+
+    return error;
+}
+#endif
+
 bool address_space_write(AddressSpace *as, hwaddr addr,
                          const uint8_t *buf, int len)
 {
