@@ -113,6 +113,29 @@ WORD_TYPE helper_le_ld_name(CPUArchState *env, target_ulong addr, int mmu_idx,
                             uintptr_t retaddr)
 {
     DATA_TYPE res;
+
+    /* Handle slow unaligned access (it spans two pages or IO).  */
+    if (DATA_SIZE > 1
+        && ((addr & ~TARGET_PAGE_MASK) + DATA_SIZE - 1
+                >= TARGET_PAGE_SIZE)) {
+        target_ulong addr1, addr2;
+        DATA_TYPE res1, res2;
+        unsigned shift;
+
+        addr1 = addr & ~(DATA_SIZE - 1);
+        addr2 = addr1 + DATA_SIZE;
+        /* Note the adjustment at the beginning of the function.
+           Undo that for the recursion.  */
+        res1 = helper_le_ld_name(env, addr1, mmu_idx, retaddr);
+        res2 = helper_le_ld_name(env, addr2, mmu_idx, retaddr);
+        shift = (addr & (DATA_SIZE - 1)) * 8;
+
+        /* Little-endian combine.  */
+        res = (res1 >> shift) | (res2 << ((DATA_SIZE * 8) - shift));
+
+        return res;
+    }
+
     uint64_t dynamic_addr = crete_get_dynamic_addr(addr);
 
 #if DATA_SIZE == 1
@@ -131,6 +154,29 @@ WORD_TYPE helper_be_ld_name(CPUArchState *env, target_ulong addr, int mmu_idx,
                             uintptr_t retaddr)
 {
     DATA_TYPE res;
+
+    /* Handle slow unaligned access (it spans two pages or IO).  */
+    if (DATA_SIZE > 1
+        && ((addr & ~TARGET_PAGE_MASK) + DATA_SIZE - 1
+                >= TARGET_PAGE_SIZE)) {
+        target_ulong addr1, addr2;
+        DATA_TYPE res1, res2;
+        unsigned shift;
+
+        addr1 = addr & ~(DATA_SIZE - 1);
+        addr2 = addr1 + DATA_SIZE;
+        /* Note the adjustment at the beginning of the function.
+           Undo that for the recursion.  */
+        res1 = helper_be_ld_name(env, addr1, mmu_idx, retaddr);
+        res2 = helper_be_ld_name(env, addr2, mmu_idx, retaddr);
+        shift = (addr & (DATA_SIZE - 1)) * 8;
+
+        /* Big-endian combine.  */
+        res = (res1 << shift) | (res2 >> ((DATA_SIZE * 8) - shift));
+
+        return res;
+    }
+
     // TODO: xxx BE (should not need to reverse the address,
     //               as long as it stay consistent wit memory monitoring)
     uint64_t dynamic_addr = crete_get_dynamic_addr(addr);
@@ -178,6 +224,26 @@ static inline void glue(io_write, SUFFIX)(CPUArchState *env,
 void helper_le_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
                        int mmu_idx, uintptr_t retaddr)
 {
+    /* Handle slow unaligned access (it spans two pages or IO).  */
+    if (DATA_SIZE > 1
+        && ((addr & ~TARGET_PAGE_MASK) + DATA_SIZE - 1
+                >= TARGET_PAGE_SIZE)) {
+        int i;
+
+        /* XXX: not efficient, but simple */
+        /* Note: relies on the fact that tlb_fill() does not remove the
+         * previous page from the TLB cache.  */
+        for (i = DATA_SIZE - 1; i >= 0; i--) {
+            /* Little-endian extract.  */
+            uint8_t val8 = val >> (i * 8);
+            /* Note the adjustment at the beginning of the function.
+               Undo that for the recursion.  */
+            glue(helper_ret_stb, MMUSUFFIX)(env, addr + i, val8,
+                                            mmu_idx, retaddr);
+        }
+        return;
+    }
+
     uint64_t dynamic_addr = crete_get_dynamic_addr(addr);
 #if DATA_SIZE == 1
     glue(glue(st, SUFFIX), _p)((uint8_t *)dynamic_addr, val);
@@ -190,6 +256,26 @@ void helper_le_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
 void helper_be_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
                        int mmu_idx, uintptr_t retaddr)
 {
+    /* Handle slow unaligned access (it spans two pages or IO).  */
+    if (DATA_SIZE > 1
+        && ((addr & ~TARGET_PAGE_MASK) + DATA_SIZE - 1
+                >= TARGET_PAGE_SIZE)) {
+        int i;
+
+        /* XXX: not efficient, but simple */
+        /* Note: relies on the fact that tlb_fill() does not remove the
+         * previous page from the TLB cache.  */
+        for (i = DATA_SIZE - 1; i >= 0; i--) {
+            /* Big-endian extract.  */
+            uint8_t val8 = val >> (((DATA_SIZE - 1) * 8) - (i * 8));
+            /* Note the adjustment at the beginning of the function.
+               Undo that for the recursion.  */
+            glue(helper_ret_stb, MMUSUFFIX)(env, addr + i, val8,
+                                            mmu_idx, retaddr);
+        }
+        return;
+    }
+
     // TODO: xxx BE (should not need to reverse the address,
     //               as long as it stay consistent wit memory monitoring)
     uint64_t dynamic_addr = crete_get_dynamic_addr(addr);
