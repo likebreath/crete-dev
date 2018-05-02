@@ -1584,6 +1584,14 @@ void RuntimeEnv::add_trace_tag(const TranslationBlock *tb, uint64_t tb_count)
 
         ++m_trace_tag_nodes_count;
     } else {
+        if(tb->last_opc == 0xFFFB)
+        {
+            // xxx: ignore conditional branches in interrupted TB.
+            // NOTE: Very likely the TB here is translated froms a special instruction with multiple branches,
+            // such as instructions with "REP" prefix. In this way, there will be conditional branches in the
+            // of a TB, while the "normal" TBs will only have conditional branch at the end.
+            ;
+        } else
         // xxx: potential reasons:
         //      1. the list_crete_cond_jump_opc is not complete
         if(m_current_tb_br_taken.size() != 0)
