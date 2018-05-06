@@ -74,6 +74,8 @@ static inline void crete_custom_instr_check_target_pid()
     }
 }
 
+// Maxium number of concolic variables from the same location (in a process)
+const uint8_t crete_limit_same_concolics = 3;
 static string get_unique_name(const char *name)
 {
     stringstream unique_name;
@@ -84,6 +86,13 @@ static string get_unique_name(const char *name)
     while(!concolics_names.insert(unique_name.str()).second) {
         unique_name.str(string());
         unique_name << base_name << "_" << ++count;
+        if(count >= crete_limit_same_concolics)
+        {
+            fprintf(stderr, "[CRETE INFO] Hit limit on the number of concolics variables "
+                    "from the same location, ignoring: '%s'\n",
+                    unique_name.str().c_str());
+            return string();
+        }
     }
 
     return unique_name.str();
@@ -116,9 +125,12 @@ static inline void crete_custom_instr_send_concolic_name()
     if(strcmp(unique_name.c_str(), current_concolic_name))
     {
         uint64_t unique_name_size = unique_name.size();
-        assert(unique_name_size > name_size);
-        assert(unique_name_size < (2*MAX_CONCOLIC_NAME_SIZE-1));
-        strncpy(current_concolic_name, unique_name.c_str(), unique_name_size);
+        if(unique_name_size != 0)
+        {
+            assert(unique_name_size > name_size);
+            assert(unique_name_size < (2*MAX_CONCOLIC_NAME_SIZE-1));
+            strncpy(current_concolic_name, unique_name.c_str(), unique_name_size);
+        }
         current_concolic_name[unique_name_size] = '\0';
 
         if(RuntimeEnv::access_guest_memory(g_cpuState_bct, name_guest_addr,
@@ -138,7 +150,7 @@ static inline void crete_custom_instr_pre_make_concolic()
             "It should have been set by crete_custom_instr_send_concolic_name\n");
 
     string concolic_name(current_concolic_name);
-    memset(current_concolic_name, 0, 512);
+    memset(current_concolic_name, 0, 2*MAX_CONCOLIC_NAME_SIZE);
 
     target_ulong guest_addr = g_cpuState_bct->regs[R_EAX];
     target_ulong size = g_cpuState_bct->regs[R_ECX];

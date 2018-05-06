@@ -94,25 +94,34 @@ static void __crete_make_concolic_internal(void *addr, size_t size, const char* 
     );
 }
 
-static void crete_send_concolic_name(const char* name) {
-    size_t name_size = strlen(name);
+static int crete_send_concolic_name(const char volatile *name) {
+    size_t name_size;
+    name_size = strlen((const char *)name);
     __crete_touch_buffer((void*)name, name_size);
 
     __asm__ __volatile__(
             CRETE_INSTR_SEND_CONCOLIC_NAME()
         : : "a" (name), "c" (name_size)
     );
+
+    // Convention: when the current concolic variable exceeds the limit,
+    // qemu will set the name as all 0s.
+    if(name[0] == '\0')
+        return 1;
+    else
+        return 0;
 }
 
 // Prepare for "crete_make_concolic()" within VM for tracing:
 // Send information from guest to VM, guest_addr, size, name and name size of concolic value, so that:
 // 1. Set the correct value of concolic variale from test case
 // 2. Enable taint-analysis on this concolic variable
-static void crete_pre_make_concolic(void* addr, size_t size, const char* name)
+static int crete_pre_make_concolic(void* addr, size_t size, const char* name)
 {
     // CRETE_INSTR_SEND_CONCOLIC_NAME must be sent before CRETE_INSTR_PRE_MAKE_CONCOLIC,
     // to satisfy the hanlder's order in qemu/runtime-dump/custom-instruction.cpp
-    crete_send_concolic_name(name);
+    if(crete_send_concolic_name(name))
+        return 1;
 
     __crete_touch_buffer(addr, size);
 
@@ -120,6 +129,8 @@ static void crete_pre_make_concolic(void* addr, size_t size, const char* name)
             CRETE_INSTR_PRE_MAKE_CONCOLIC()
         : : "a" (addr), "c" (size)
     );
+
+    return 0;
 }
 
 static char crete_check_target_pid(void)
@@ -144,7 +155,9 @@ void crete_make_concolic(void* addr, size_t size, const char* name)
     strncpy(concolic_name, name, copy_size);
     concolic_name[copy_size] = '\0';
 
-    crete_pre_make_concolic(addr, size, concolic_name);
+    if(crete_pre_make_concolic(addr, size, concolic_name))
+        return;
+
     __crete_make_concolic_internal(addr, size, concolic_name);
 }
 
@@ -193,4 +206,3 @@ void crete_send_custom_instr_quit(void)
         CRETE_INSTR_QUIT()
     );
 }
-

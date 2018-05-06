@@ -87,11 +87,11 @@ __CRETE_DEF_KPROBE(oops_enter);
 // 1. Pointer return with failure on NULL (28)
 // -------------------------------------------
 __CRETE_DEF_KPROBE_RET_CONCOLIC(__alloc_ei_netdev);
-//__CRETE_DEF_KPROBE_RET_CONCOLIC(__alloc_pages_nodemask); // invoked from a loop in e1000
+__CRETE_DEF_KPROBE_RET_CONCOLIC(__alloc_pages_nodemask); // invoked from a loop in e1000
 __CRETE_DEF_KPROBE_RET_CONCOLIC(__alloc_skb);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(__kmalloc);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(__napi_alloc_skb);
-//__CRETE_DEF_KPROBE_RET_CONCOLIC(__netdev_alloc_skb); // invoked from a loop in e100
+__CRETE_DEF_KPROBE_RET_CONCOLIC(__netdev_alloc_skb); // invoked from a loop in e100
 __CRETE_DEF_KPROBE_RET_CONCOLIC(__pskb_pull_tail);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(__request_region);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(alloc_etherdev_mqs);
@@ -201,11 +201,11 @@ static inline int register_probes(void)
     // 1. Pointer return with failure on NULL (28)
     // -------------------------------------------
     __CRETE_REG_KPROBE(__alloc_ei_netdev);
-    //__CRETE_REG_KPROBE(__alloc_pages_nodemask);
+    __CRETE_REG_KPROBE(__alloc_pages_nodemask);
     __CRETE_REG_KPROBE(__alloc_skb);
     __CRETE_REG_KPROBE(__kmalloc);
     __CRETE_REG_KPROBE(__napi_alloc_skb);
-    //__CRETE_REG_KPROBE(__netdev_alloc_skb);
+    __CRETE_REG_KPROBE(__netdev_alloc_skb);
     __CRETE_REG_KPROBE(__pskb_pull_tail);
     __CRETE_REG_KPROBE(__request_region);
     __CRETE_REG_KPROBE(alloc_etherdev_mqs);
@@ -311,11 +311,11 @@ static inline void unregister_probes(void)
     // 1. Pointer return with failure on NULL (28)
     // -------------------------------------------
     __CRETE_UNREG_KPROBE(__alloc_ei_netdev);
-    //__CRETE_UNREG_KPROBE(__alloc_pages_nodemask);
+    __CRETE_UNREG_KPROBE(__alloc_pages_nodemask);
     __CRETE_UNREG_KPROBE(__alloc_skb);
     __CRETE_UNREG_KPROBE(__kmalloc);
     __CRETE_UNREG_KPROBE(__napi_alloc_skb);
-    //__CRETE_UNREG_KPROBE(__netdev_alloc_skb);
+    __CRETE_UNREG_KPROBE(__netdev_alloc_skb);
     __CRETE_UNREG_KPROBE(__pskb_pull_tail);
     __CRETE_UNREG_KPROBE(__request_region);
     __CRETE_UNREG_KPROBE(alloc_etherdev_mqs);
