@@ -322,7 +322,7 @@ void CreteReplayPreload::write_ck_exp()
 static void crete_signal_handler(int signum)
 {
     //TODO: xxx _exit() is safer, but gcov will not generate coverage report with _exit()
-    exit(CRETE_EXIT_CODE_SIG_BASE + signum);
+    _exit(CRETE_EXIT_CODE_SIG_BASE + signum);
 }
 
 static void init_crete_signal_handlers(int argc, char **argv)
