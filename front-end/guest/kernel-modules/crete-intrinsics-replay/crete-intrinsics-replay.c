@@ -451,8 +451,8 @@ static int crete_make_conoclic_internal(void* addr, size_t size, const char* nam
          }
     }
 
-    printk(KERN_INFO "[CRETE Warning] crete_make_conoclic_internal: no match found in tc_list, skip \'%s\'\n",
-            name);
+//    printk(KERN_INFO "[CRETE Warning] crete_make_conoclic_internal: no match found in tc_list, skip \'%s\'\n",
+//            name);
 
     return 0;
 }
@@ -464,8 +464,8 @@ void crete_make_concolic(void* addr, size_t size, const char* name)
 
     if(current->pid != target_pid)
     {
-        printk(KERN_INFO "[CRETE Warning] crete_make_concolic: not from target_pid: (addr = %p, size = %zu, name = %s)\n",
-                addr, size, name);
+//        printk(KERN_INFO "[CRETE Warning] crete_make_concolic: not from target_pid: (addr = %p, size = %zu, name = %s)\n",
+//                addr, size, name);
         return;
     }
 
