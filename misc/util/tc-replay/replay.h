@@ -60,6 +60,7 @@ private:
 
     void init_auto_mode(fs::path &input, bool clear);
     void cleanup_auto_mode() const;
+    void check_and_remove_crash_count() const;
 
     void setup_launch();
 
