@@ -443,7 +443,16 @@ void CreteTcCompare::batch_path_mode()
 
 void CreteTcCompare::display_tc() const
 {
-    TestCase tc = retrieve_test_serialized(m_display.string());
+    TestCase tc;
+    try{
+         tc = retrieve_test_serialized(m_display.string());
+    }
+    catch (...)
+    {
+        ifstream is(m_display.string().c_str());
+        tc = read_test_case(is);
+    }
+
     tc.print();
 }
 
