@@ -622,7 +622,7 @@ void CreteReplay::collect_gcov_result()
 }
 
 static unsigned monitored_pid = 0;
-static unsigned monitored_timeout = 3;
+static unsigned monitored_timeout = 5;
 
 static void timeout_handler(int signum)
 {
@@ -712,9 +712,16 @@ static bool execute_command_line(const std::string& cmd, const bp::posix_context
         assert(0);
     }
 
-//    sync();
+    // Special handling of executing sleep function
+    if(exec.find("sleep") != string::npos)
+    {
+        sleep(1);
+        return ret;
+    }
+
     bp::posix_child c = bp::posix_launch(exec, args, ctx);
 
+    // Start alarm
     monitored_pid = c.get_id();
     assert(monitored_timeout != 0);
     alarm(monitored_timeout);
@@ -727,12 +734,47 @@ static bool execute_command_line(const std::string& cmd, const bp::posix_context
 //        log << line << endl;
 //    }
 
-    bp::status s = c.wait();
-    alarm(0);
+    int status;
+    int w = waitpid(monitored_pid, &status, WUNTRACED);
 
-    if(!(s.exited() && (s.exit_status() == 0)))
+    // Stop alarm
+    if(alarm(0) ==0)
     {
+        log << "[CRETE Warning] alarm() returns '0', indicates a time-out, from executing: "
+                << cmd.c_str() << endl;
+    }
+
+    if(w == -1)
+    {
+        // 1. waitpid() failed
         ret = false;
+
+        if(errno == EINTR)
+        {
+            log << "[CRETE Warning] waitpid() failed with 'EINTR' (may caused by time-out) from executing: "
+                    << cmd.c_str() << endl;
+        } else {
+            log << "[CRETE Warning] wiatpid() failed from executing: " << cmd.c_str() << endl;
+        }
+    } else if(!WIFEXITED(status)) {
+        // 2. waitpid() succeeded, but waiting process is not exited
+        log << "[CRETE Warning] waitpid() process is not exited: " << cmd.c_str() << endl;
+        ret = false;
+
+        if(WIFSTOPPED(status))
+        {
+            log << "waitpid() process is stopped with signal: " << WSTOPSIG(status) << endl;
+        }
+    } else {
+        // 3. waitpid() succeeded, and waiting process is exited
+        int ret_value = WEXITSTATUS(status);
+        if(ret_value != 0)
+        {
+            ret = false;
+        } else
+        {
+            ret = true;
+        }
     }
 
     return ret;
@@ -900,7 +942,10 @@ void CreteReplay::replay()
 #endif
 
             bp::status status = proc.wait();
-            alarm(0);
+            if(alarm(0) == 0)
+            {
+                ofs_replay_log << "[CRETE Warning]Launched executable: timed-out\n";
+            }
 
             bool signal_caught;
             if(status.exited())
@@ -933,12 +978,14 @@ void CreteReplay::replay()
                     ofs_replay_log << "[CRETE Warning][crete-replay] \'" << it->c_str() << "\' executed unsuccessfully.\n";
                 }
             }
+
+            sync();
         }
         ofs_replay_log << "====================================================================\n";
     }
 
-    collect_gcov_result();
-    cleanup_auto_mode();
+//    collect_gcov_result();
+//    cleanup_auto_mode();
 }
 
 // FIXME: xxx add timeout to deal with GDB hanging
