@@ -128,6 +128,8 @@ public:
     void generate_crete_main();
     void generate_llvm_cpuStateSyncTables(const string& input_file_name);
     void generate_llvm_MemorySyncTables(const string& input_file_name);
+
+    void crete_init_pioSyncTables(const string& input_file_name);
 #else
 #error "ERROR"
 #endif

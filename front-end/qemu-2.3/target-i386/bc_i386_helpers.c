@@ -11,6 +11,7 @@
 #include "bc_fpu_helper.c"
 #include "bc_excp_helper.c"
 #include "../bc_tcg-runtime.c"
+#include "bc_misc_helper.c"
 
 /* list of files related to bit-cde
  *

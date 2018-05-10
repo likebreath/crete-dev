@@ -349,6 +349,21 @@ void RuntimeEnv::addMemoMergePoint(MemoMergePoint_ty type_MMP)
 #endif //#if defined(CRETE_DBG_MEM_MONI)
 
 
+void RuntimeEnv::addCurrentPortIORead(uint64_t port_io_addr, uint64_t value)
+{
+    m_currentPIOSyncTable.push_back(make_pair(port_io_addr, value));
+}
+
+void RuntimeEnv::addCurrentPortIOReadTable()
+{
+    m_PIOSyncTables.push_back(m_currentPIOSyncTable);
+}
+
+void RuntimeEnv::clearCurrentPortIOReadTable()
+{
+    m_currentPIOSyncTable.clear();
+}
+
 void RuntimeEnv::addTBExecSequ(uint64_t index_captured_llvm_tb, uint64_t tb_pc)
 {
     m_tcg_llvm_offline_ctx.dump_tbExecSequ(tb_pc, index_captured_llvm_tb);
@@ -441,6 +456,7 @@ void RuntimeEnv::writeRtEnvToFile()
         writeCPUStateSyncTables();
         writeDebugCPUStateSyncTables();
         writeMemoSyncTables();
+        writePIOSyncTables();
 
         // to-be-streamed
         writeInterruptStates();
@@ -475,6 +491,7 @@ void RuntimeEnv::stream_writeRtEnvToFile(uint64_t tb_count) {
     writeCPUStateSyncTables();
     writeDebugCPUStateSyncTables();
     writeMemoSyncTables();
+    writePIOSyncTables();
 
     m_streamed = true;
     m_pending_stream = false;
@@ -619,6 +636,8 @@ void RuntimeEnv::verifyDumpData() const
 
     assert(m_memoSyncTables.size() == (rt_dump_tb_count - m_streamed_tb_count) &&
                 "Something wrong in m_memoSyncTables dump, its size should be equal to rt_dump_tb_count all the time.\n");
+    assert(m_PIOSyncTables.size() == (rt_dump_tb_count - m_streamed_tb_count) &&
+                "Something wrong in m_PIOSyncTables dump, its size should be equal to rt_dump_tb_count all the time.\n");
 
     assert(m_interruptStates.size() == (rt_dump_tb_count) &&
     		"Something wrong in m_interruptStates dump, its size should be equal to (rt_dump_tb_count - 1) all the time.\n");
@@ -925,6 +944,26 @@ void RuntimeEnv::writeMemoSyncTables()
     }
 
     m_memoSyncTables.clear();
+}
+
+
+void RuntimeEnv::writePIOSyncTables()
+{
+    stringstream ss;
+    ss << "dump_sync_pio." << m_streamed_index << ".bin";
+    ofstream o_sm(getOutputFilename(ss.str()).c_str(), ios_base::binary);
+
+    assert(o_sm.good());
+
+    try {
+        boost::archive::binary_oarchive oa(o_sm);
+        oa << m_PIOSyncTables;
+    }
+    catch(std::exception &e){
+        cerr << e.what() << endl;
+    }
+
+    m_PIOSyncTables.clear();
 }
 
 #if defined(CRETE_DBG_MEM_MONI)
@@ -1829,6 +1868,7 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
     if(tb_pre_interested)
     {
         runtime_env->clearCurrentMemoSyncTable();
+        runtime_env->clearCurrentPortIOReadTable();
         runtime_env->setCPUStatePreInterest((void *)env);
 
         ++rt_dump_tb_count;
@@ -2019,6 +2059,8 @@ int crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *input_tb, uint6
 	        } else {
 	            runtime_env->mergeCurrentMemoSyncTable();
 	        }
+
+	        runtime_env->addCurrentPortIOReadTable();
 
 	        // 4. Interrupt information:
 	        //    Add an empty interrupt state for each interested TB
@@ -2286,6 +2328,10 @@ void dump_memo_sync_table_entry(struct RuntimeEnv *rt, uint64_t addr, uint32_t s
     rt->addCurrentMemoSyncTableEntry(addr, size, value);
 }
 
+void dump_port_io_read(struct RuntimeEnv *rt, uint64_t port_io_addr, uint64_t value)
+{
+    rt->addCurrentPortIORead(port_io_addr, value);
+}
 
 void crete_set_capture_enabled(struct CreteFlags *cf, int capture_enabled)
 {
