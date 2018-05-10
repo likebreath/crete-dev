@@ -56,6 +56,8 @@ int  crete_post_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb,
 		uint64_t next_tb, uint64_t crete_interrupted_pc);
 void dump_memo_sync_table_entry(struct RuntimeEnv *rt, uint64_t addr,
 		uint32_t size, uint64_t value);
+void dump_port_io_read(struct RuntimeEnv *rt, uint64_t port_io_addr,
+        uint64_t value);
 
 void crete_handle_raise_interrupt(void *env, int intno,
         int is_int, int error_code, int next_eip_addend);
@@ -206,6 +208,9 @@ typedef pair<QemuInterruptInfo, bool> interruptState_ty;
 //<name, concolic_memo>
 typedef map<string, CreteMemoInfo> creteConcolics_ty;
 
+// port_io_addr, ret_value
+typedef pair<uint64_t, uint64_t> portIOread_ty;
+typedef vector<portIOread_ty> portIOreadTable_ty;
 
 class RuntimeEnv
 {
@@ -237,6 +242,10 @@ private:
     // Each entry is a memoSyncTable
     debug_memoSyncTables_ty m_debug_memoSyncTables;
     vector<MemoMergePoint_ty> m_debug_memoMergePoints;
+
+    // PORT IO reads
+    portIOreadTable_ty m_currentPIOSyncTable;
+    vector<portIOreadTable_ty> m_PIOSyncTables;
 
     // Streaming tracing
     bool m_streamed;        // Flag to indicate whether the trace have been streamed or not
@@ -328,6 +337,11 @@ public:
     void addMemoSyncTableEntry(uint64_t addr, uint32_t size, uint64_t value);
     void addMemoMergePoint(MemoMergePoint_ty type_MMP);
 
+    // Port IO reads
+    void addCurrentPortIORead(uint64_t port_io_addr, uint64_t value);
+    void addCurrentPortIOReadTable();
+    void clearCurrentPortIOReadTable();
+
     // Stream tracing
     void stream_writeRtEnvToFile(uint64_t tb_count);
     void set_pending_stream();
@@ -411,6 +425,9 @@ private:
     void writeInterruptStates() const;
 
     void writeTBGraphExecSequ();
+
+    //Port IO reads
+    void writePIOSyncTables();
 
     // Trace tag
     void print_trace_tag() const;

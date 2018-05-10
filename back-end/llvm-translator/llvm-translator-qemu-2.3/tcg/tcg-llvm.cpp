@@ -128,6 +128,9 @@ typedef pair<bool, vector<CPUStateElement> > cpuStateSyncTable_ty;
 
 typedef vector<pair<uint64_t, uint8_t> > memoSyncTable_ty;
 
+typedef pair<uint64_t, uint64_t> portIOread_ty;
+typedef vector<portIOread_ty> portIOreadTable_ty;
+
 struct TCGLLVMContextPrivate {
     LLVMContext& m_context;
     IRBuilder<> m_builder;
@@ -271,6 +274,9 @@ public:
     void generate_llvm_MemorySyncTables(const string& input_file_name);
     void generate_llvm_MemorySyncTable(const memoSyncTable_ty& memost);
 
+    void crete_init_pioSyncTables(const string& input_file_name);
+    void generate_llvm_pio_SyncTable();
+
 private:
     map<uint64_t, string> m_crete_helper_names;
 
@@ -280,6 +286,8 @@ private:
 
     vector<pair<uint64_t, GlobalVariable *> > m_cpuState_sync_globals;
     vector<pair<uint64_t, GlobalVariable *> > m_memory_sync_globals;
+
+    portIOreadTable_ty m_pio_sync_table;
 };
 
 TCGLLVMContextPrivate::TCGLLVMContextPrivate()
@@ -1557,6 +1565,10 @@ void TCGLLVMContextPrivate::generate_crete_main()
     m_builder.CreateStore(m_builder.CreatePtrToInt(crete_cpu_state, intType(64)),
             cpu_state_addr, false);
 
+
+    // 4.1 setup port_io_sync_tables as global variable
+    generate_llvm_pio_SyncTable();
+
     uint64_t tb_count = 0;
     for(vector<pair<uint64_t, uint64_t> >::const_iterator it = m_tbExecSequ.begin();
             it != m_tbExecSequ.end(); ++it, ++tb_count) {
@@ -1865,6 +1877,97 @@ void TCGLLVMContextPrivate::generate_llvm_MemorySyncTable(const memoSyncTable_ty
 
     m_memory_sync_globals.push_back(make_pair(syncTable_size, gvar_array_cpuStateSyncTable));
 }
+
+void TCGLLVMContextPrivate::crete_init_pioSyncTables(const string& input_file_name)
+{
+    ifstream i_sm(input_file_name.c_str(), ios_base::binary);
+    if(!i_sm.good()) {
+        BOOST_THROW_EXCEPTION(std::runtime_error("[Crete Error] can't find file: " + input_file_name));
+    }
+
+    vector<portIOreadTable_ty> streamed_pio_tables;
+    boost::archive::binary_iarchive ia(i_sm);
+    ia >> streamed_pio_tables;
+
+    fprintf(stderr, "crete_init_pio_info(): %lu\n", streamed_pio_tables.size());
+    uint64_t i = 0;
+    for(vector<portIOreadTable_ty> ::const_iterator it = streamed_pio_tables.begin();
+            it != streamed_pio_tables.end(); ++it) {
+        for(portIOreadTable_ty::const_iterator in_it = it->begin();
+                in_it != it->end(); ++in_it) {
+            fprintf(stderr, "tb-%lu: (%lu, %lu)\n", i, in_it->first, in_it->second);
+
+            m_pio_sync_table.push_back(*in_it);
+        }
+        i++;
+    }
+}
+
+void TCGLLVMContextPrivate::generate_llvm_pio_SyncTable()
+{
+    if(m_pio_sync_table.empty())
+    {
+        return;
+    }
+
+    StructType *StructTy_struct_PIO_SyncElement = m_module->getTypeByName("struct.PortIOElement");
+    if(!StructTy_struct_PIO_SyncElement)
+    {
+        BOOST_THROW_EXCEPTION(std::runtime_error( "struct.PortIOElement is not defined.\n"));
+    }
+
+    uint64_t syncTable_size = m_pio_sync_table.size();
+    std::vector<Constant*> const_array_elems; // construct value for syncTable in llvm
+    const_array_elems.reserve(syncTable_size);
+
+    for(portIOreadTable_ty::const_iterator it = m_pio_sync_table.begin();
+            it != m_pio_sync_table.end(); ++it) {
+        uint64_t port = it->first;
+        uint64_t ret_value = it->second;
+
+        // 1. uint64_t m_port
+        ConstantInt* const_int64_port= ConstantInt::get(m_module->getContext(), APInt(64, port));
+        // 2. uint64_t m_value
+        ConstantInt* const_int64_value = ConstantInt::get(m_module->getContext(), APInt(64, ret_value));
+
+        std::vector<Constant*> const_pio_SyncElement_fields;
+        const_pio_SyncElement_fields.push_back(const_int64_port);
+        const_pio_SyncElement_fields.push_back(const_int64_value);
+
+        Constant* const_pio_Element = ConstantStruct::get(StructTy_struct_PIO_SyncElement, const_pio_SyncElement_fields);
+
+        const_array_elems.push_back(const_pio_Element);
+    }
+
+    assert(const_array_elems.size() == syncTable_size);
+
+    // Construct type for syncTable in llvm as "PortIOElement[syncTable_size]"
+    ArrayType* ArrayTy_syncTable = ArrayType::get(StructTy_struct_PIO_SyncElement, syncTable_size);
+    // Construct instance of syncTable as global variable in llvm
+    GlobalVariable* gvar_array_pio_SyncTable = new GlobalVariable(*m_module, /*Module=*/
+                                                                  ArrayTy_syncTable, /*Type=*/
+                                                                  false, /*isConstant=*/
+                                                                  GlobalValue::ExternalLinkage, /*Linkage=*/
+                                                                  ConstantArray::get(ArrayTy_syncTable, const_array_elems) /*Initializer=*/);
+
+    // call set_current_pio_table(&gvar_array_cpuStateSyncTable, syncTable_size)
+    Constant* const_ptr_sync_table = ConstantExpr::getGetElementPtr(gvar_array_pio_SyncTable,
+            vector<Constant *>(2, ConstantInt::get(m_module->getContext(), APInt(32, 0))));
+    ConstantInt* const_int32_pio_table_size = ConstantInt::get(m_module->getContext(), APInt(32, syncTable_size));
+
+    std::vector<Value*>  set_current_pio_table_argValues;
+    set_current_pio_table_argValues.push_back(const_ptr_sync_table);
+    set_current_pio_table_argValues.push_back(const_int32_pio_table_size);
+
+    Function* func_set_current_pio_table = m_module->getFunction("set_current_pio_table");
+    if(!func_set_current_pio_table )
+    {
+        BOOST_THROW_EXCEPTION(std::runtime_error("[Crete Error] set_current_pio_table() is not defined.\n"));
+    }
+
+    m_builder.CreateCall(func_set_current_pio_table, set_current_pio_table_argValues);
+}
+
 /***********************************/
 /* External interface for C++ code */
 
@@ -1993,6 +2096,11 @@ void TCGLLVMContext::generate_llvm_cpuStateSyncTables(const string& input_file_n
 void TCGLLVMContext::generate_llvm_MemorySyncTables(const string& input_file_name)
 {
     m_private->generate_llvm_MemorySyncTables(input_file_name);
+}
+
+void TCGLLVMContext::crete_init_pioSyncTables(const string& input_file_name)
+{
+    m_private->crete_init_pioSyncTables(input_file_name);
 }
 #endif // TCG_LLVM_OFFLINE
 /*****************************/

@@ -387,6 +387,13 @@ void x86_llvm_translator()
             ss << "dump_new_sync_memos." << streamed_count-1 << ".bin";
             tcg_llvm_ctx->generate_llvm_MemorySyncTables(ss.str());
         }
+
+        {
+            ss.str(string());
+            ss << "dump_sync_pio." << streamed_count-1 << ".bin";
+            tcg_llvm_ctx->crete_init_pioSyncTables(ss.str());
+        }
+
     }
 
     //4. generate main function

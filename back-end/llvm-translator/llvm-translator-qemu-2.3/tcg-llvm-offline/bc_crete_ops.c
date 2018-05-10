@@ -1,4 +1,5 @@
 #include "stdint.h"
+#include "assert.h"
 
 struct CPUStateElement
 {
@@ -11,6 +12,12 @@ struct MemoryElement
 {
     uint8_t m_value;
     uint64_t m_static_addr;
+};
+
+struct PortIOElement
+{
+    uint64_t m_port;
+    uint64_t m_value;
 };
 
 extern uint64_t crete_get_dynamic_addr(uint64_t);
@@ -60,4 +67,26 @@ void crete_sync_cpu_state(uint8_t *cpu_state, uint32_t cs_size,
 void crete_sync_memory(const struct MemoryElement *sync_table, uint32_t st_size)
 {
     internal_crete_sync_memory(sync_table, st_size);
+}
+
+const struct PortIOElement *crete_pio_table;
+uint32_t crete_pio_table_size;
+
+uint64_t crete_port_io_read(uint32_t port_addr)
+{
+    assert(crete_pio_table_size != 0);
+    assert(port_addr == crete_pio_table->m_port);
+
+    uint64_t ret = crete_pio_table->m_value;
+
+    crete_pio_table++;
+    crete_pio_table_size--;
+
+    return ret;
+}
+
+void set_current_pio_table(const struct PortIOElement *table, uint32_t size)
+{
+    crete_pio_table = table;
+    crete_pio_table_size = size;
 }

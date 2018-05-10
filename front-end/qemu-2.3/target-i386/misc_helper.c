@@ -36,7 +36,16 @@ void helper_outb(uint32_t port, uint32_t data)
 
 target_ulong helper_inb(uint32_t port)
 {
+#if defined(CRETE_CONFIG) || 1
+    target_ulong ret = cpu_inb(port);
+    if(flag_rt_dump_enable) {
+        dump_port_io_read(runtime_env, port, ret);
+    }
+
+    return ret;
+#else
     return cpu_inb(port);
+#endif
 }
 
 void helper_outw(uint32_t port, uint32_t data)
@@ -46,7 +55,16 @@ void helper_outw(uint32_t port, uint32_t data)
 
 target_ulong helper_inw(uint32_t port)
 {
+#if defined(CRETE_CONFIG) || 1
+    target_ulong ret = cpu_inw(port);
+    if(flag_rt_dump_enable) {
+        dump_port_io_read(runtime_env, port, ret);
+    }
+
+    return ret;
+#else
     return cpu_inw(port);
+#endif
 }
 
 void helper_outl(uint32_t port, uint32_t data)
@@ -56,7 +74,17 @@ void helper_outl(uint32_t port, uint32_t data)
 
 target_ulong helper_inl(uint32_t port)
 {
+#if defined(CRETE_CONFIG) || 1
+    target_ulong ret = cpu_inl(port);
+
+    if(flag_rt_dump_enable) {
+        dump_port_io_read(runtime_env, port, ret);
+    }
+
+    return ret;
+#else
     return cpu_inl(port);
+#endif
 }
 
 void helper_into(CPUX86State *env, int next_eip_addend)
