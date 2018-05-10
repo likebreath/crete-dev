@@ -3,6 +3,7 @@
 #include <boost/program_options.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/unordered_set.hpp>
 
 #include <string>
 #include <sstream>
@@ -405,6 +406,8 @@ void batch_path_mode_internal(const fs::path& input)
     }
     fs::create_directories(out_dir);
 
+    boost::unordered_set<TestCaseElements> patched_tc_hash;
+    uint64_t duplicated_count = 0;
     for(uint64_t i = 0; i < tcs.size(); ++i)
     {
         TestCase out_tc;
@@ -419,12 +422,22 @@ void batch_path_mode_internal(const fs::path& input)
 
         check_tc_elems_meaningfulness(out_tc);
 
+        if(!patched_tc_hash.insert(out_tc.get_elements()).second)
+        {
+            ++duplicated_count;
+//            fprintf(stderr, "");
+            continue;
+        }
+
         std::stringstream ss;
         ss << out_dir.string() << "/" << (i+1) << ".bin";
         std::ofstream ktest_pool_file(ss.str().c_str(), std::ios_base::out | std::ios_base::binary);
         assert(ktest_pool_file);
         out_tc.write(ktest_pool_file);
     }
+
+    fprintf(stderr, "Duplicated count: %lu/%lu in %s",
+            duplicated_count, tcs.size(), out_dir.string().c_str());
 }
 
 void CreteTcCompare::batch_path_mode()
