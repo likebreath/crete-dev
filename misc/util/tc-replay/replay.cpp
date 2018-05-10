@@ -982,6 +982,8 @@ void CreteReplay::replay()
             sync();
         }
         ofs_replay_log << "====================================================================\n";
+
+        check_and_remove_crash_count();
     }
 
 //    collect_gcov_result();
@@ -1205,6 +1207,11 @@ static const char *auto_mode_log = "/home/test/crete-replay-auto-mode.log";
 static const char *resume_file_name = "CRETE_REPLAY_AUTO_RESUME";
 static const char *resume_tc_dir = "crete_replay_resume_tc_dir";
 
+static const char *crash_count_file_name = "CRETE_REPLAY_CRASH_COUNT";
+static const char *crash_kdump_tmp_dir = "crete_kdump_tmp";
+
+static const char crash_retry_limit = '2';
+
 void CreteReplay::init_auto_mode(fs::path &input, bool clear)
 {
     fs::ofstream log(auto_mode_log, std::ios_base::app);
@@ -1252,9 +1259,9 @@ void CreteReplay::init_auto_mode(fs::path &input, bool clear)
     }
 
     fs::path resume_file(m_auto_mode_path / resume_file_name);
+    fs::path crash_count_file(m_auto_mode_path / crash_count_file_name);
     if(fs::exists(resume_file))
     {
-        // If resumed, collect crash information
         fs::ifstream inf(resume_file);
         if(!inf.good())
         {
@@ -1278,13 +1285,47 @@ void CreteReplay::init_auto_mode(fs::path &input, bool clear)
             exit(0);
         }
 
-        fs::path resume_info_dir =  m_auto_mode_path / collect_info_dir / currentDateTime();
-        fs::create_directories(resume_info_dir);
-        // Collect test-case
-        fs::copy_file(resume_work_tc, resume_info_dir / resume_work_tc.filename());
-        fs::remove(resume_work_tc);
+        // Check crash_retried_times
+        char crash_retried_times = '0';
+        string crashed_tc;
+        if(fs::exists(crash_count_file))
+        {
+            fs::ifstream inf(crash_count_file, ifstream::binary);
+            if(!inf.good())
+            {
+                cerr << currentDateTime() << " [CRETE ERROR] CRETE_REPLAY_CRASH_COUNT FILE broken: " << crash_count_file.string().c_str() << endl;
+                log << currentDateTime() << " [CRETE ERROR] CRETE_REPLAY_CRASH_COUNT FILE broken: " << crash_count_file.string().c_str() << endl;
+                exit(0);
+            }
 
-        // Collect kernel crash log
+            inf >> crash_retried_times;
+            inf >> crashed_tc;
+            inf.close();
+
+            if(crashed_tc != resume_work_tc.string())
+            {
+                cerr << currentDateTime() << " [CRETE ERROR] 'RESUME' and 'CRETE_REPLAY_CRASH_COUNT' are not consistent." << endl;
+                log  << currentDateTime() << " [CRETE ERROR] 'RESUME' and 'CRETE_REPLAY_CRASH_COUNT' are not consistent." << endl;
+                exit(0);
+            }
+        }
+
+        // Move kdump files to a tmp folder, and delete it from its original folder,
+        // which seems to be a ramdisk (will make the following kdump bigger and bigger)
+
+        fs::path tmp_dir = m_auto_mode_path / crash_kdump_tmp_dir ;
+        if(!fs::exists(tmp_dir))
+        {
+            fs::create_directories(tmp_dir);
+        } else {
+            if(!fs::is_directory(tmp_dir))
+            {
+                cerr << currentDateTime() << " [CRETE ERROR] 'crete_kdump_tmp' existed but not a folder:" << tmp_dir.string() << endl;
+                log << currentDateTime() << " [CRETE ERROR] 'crete_kdump_tmp' existed but not a folder:" << tmp_dir.string() << endl;
+                exit(0);
+            }
+        }
+
         fs::path kdump_dir(kdump_crash_dir);
         if(!fs::is_directory(kdump_dir))
         {
@@ -1302,8 +1343,57 @@ void CreteReplay::init_auto_mode(fs::path &input, bool clear)
             if(!fs::is_directory(src_dir))
                 continue;
 
-            copyDirectoryRecursively(src_dir, resume_info_dir / src_dir.filename());
+            fs::path dst = tmp_dir/src_dir.filename();
+            while(fs::exists(dst))
+            {
+                dst = dst.string() + '_';
+            }
+            copyDirectoryRecursively(src_dir, dst);
             fs::remove_all(src_dir);
+        }
+
+        if(crash_retried_times < crash_retry_limit)
+        {
+            // 1. if not hit retry_limit, increase the retried_times by 1 and retry
+            fs::ofstream outf(crash_count_file, ofstream::binary);
+            if(!outf.good())
+            {
+                cerr << currentDateTime() << " [CRETE ERROR] can't overwrite CRETE_REPLAY_CRASH_COUNT FILE: " << crash_count_file.string().c_str() << endl;
+                log << currentDateTime() << " [CRETE ERROR] can't overwrite CRETE_REPLAY_CRASH_COUNT FILE: " << crash_count_file.string().c_str() << endl;
+                exit(0);
+            }
+
+            outf << ++crash_retried_times;
+            outf << resume_work_tc.string();
+            outf.close();
+        } else {
+            // 2. If hit the retried_limit, collect crash information and test case,
+            //    and resume from the next test case
+            fs::path resume_info_dir =  m_auto_mode_path / collect_info_dir / currentDateTime();
+            fs::create_directories(resume_info_dir);
+            // Collect test-case
+            fs::copy_file(resume_work_tc, resume_info_dir / resume_work_tc.filename());
+            fs::remove(resume_work_tc);
+
+            // Collect kernel crash log from tmp_dir
+            for ( fs::directory_iterator itr( tmp_dir );
+                  itr != fs::directory_iterator();
+                  ++itr ){
+                fs::path src_dir = itr->path();
+                if(!fs::is_directory(src_dir))
+                    continue;
+
+                copyDirectoryRecursively(src_dir, resume_info_dir / src_dir.filename());
+            }
+            fs::remove_all(tmp_dir);
+
+            if(fs::exists(crash_count_file))
+            {
+                fs::remove(crash_count_file);
+            } else {
+                cerr << currentDateTime() << " [CRETE Warning] resume without 'CRETE_REPLAY_CRASH_COUNT'\n";
+                log << currentDateTime() << " [CRETE Warning] resume without 'CRETE_REPLAY_CRASH_COUNT'\n";
+            }
         }
     } else {
         // If not resumed, initial start, setup auto-replay
@@ -1351,6 +1441,24 @@ void CreteReplay::init_auto_mode(fs::path &input, bool clear)
     log.close();
 }
 
+void CreteReplay::check_and_remove_crash_count() const
+{
+    if(fs::exists(m_auto_mode_path / crash_count_file_name))
+    {
+        fs::remove(m_auto_mode_path / crash_count_file_name);
+    }
+
+    if(fs::exists(kdump_crash_dir))
+    {
+        fs::remove_all(kdump_crash_dir);
+    }
+
+    if(fs::exists(m_auto_mode_path / crash_kdump_tmp_dir))
+    {
+        fs::remove_all(m_auto_mode_path / crash_kdump_tmp_dir);
+    }
+}
+
 void CreteReplay::cleanup_auto_mode() const
 {
     if(m_auto_mode_path.empty())
@@ -1364,10 +1472,20 @@ void CreteReplay::cleanup_auto_mode() const
         fs::remove_all(resume_file);
     }
 
+    if(fs::exists(m_auto_mode_path / crash_count_file_name))
+    {
+        fs::remove(m_auto_mode_path / crash_count_file_name);
+    }
+
     fs::path __resume_tc = m_auto_mode_path / resume_tc_dir;
     if(fs::exists(__resume_tc))
     {
         fs::remove_all(__resume_tc);
+    }
+
+    if(fs::exists(m_auto_mode_path / crash_kdump_tmp_dir))
+    {
+        fs::remove_all(m_auto_mode_path / crash_kdump_tmp_dir);
     }
 
     if(fs::exists(auto_mode_log))
