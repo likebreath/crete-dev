@@ -514,8 +514,14 @@ static void __exit crete_intrinsics_replay_exit(void)
     remove_proc_entry(CRETE_REPLAY_PROCFS, NULL);
 }
 
+uint32_t crete_get_current_target_pid(void)
+{
+    return target_pid;
+}
+
 EXPORT_SYMBOL(crete_make_concolic);
 EXPORT_SYMBOL(crete_kernel_oops);
+EXPORT_SYMBOL(crete_get_current_target_pid);
 
 module_init(crete_intrinsics_replay_init);
 module_exit(crete_intrinsics_replay_exit);

@@ -7,11 +7,18 @@ MODULE_AUTHOR("Bo Chen (chenbo@pdx.edu)");
 MODULE_DESCRIPTION("CRETE probes for kernel API functions to inject concolic values");
 
 //#define CRETE_ENABLE_DEBUG
+#define CRETE_ENABLE_RESOURCE_CHECKER
 
 #ifdef CRETE_ENABLE_DEBUG
 #define CRETE_DBG(x) do { x } while(0)
 #else
 #define CRETE_DBG(x) do { } while(0)
+#endif
+
+#ifdef CRETE_ENABLE_RESOURCE_CHECKER
+#define CRETE_RC(x) do { x } while(0)
+#else
+#define CRETE_RC(x) do { } while(0)
 #endif
 
 #if defined(CRETE_USED_OLD_MODULE_LAYOUT)
@@ -45,6 +52,11 @@ static void (*_crete_unregister_probes_target_module)(void);
 
 static int entry_handler_default(struct kretprobe_instance *ri, struct pt_regs *regs);
 static int ret_handler_make_concolic(struct kretprobe_instance *ri, struct pt_regs *regs);
+
+#ifdef CRETE_ENABLE_RESOURCE_CHECKER
+static uint32_t (*_crete_get_current_target_pid)(void);
+#include "crete_kprobe_kernel_api_checker.c"
+#endif
 
 #define __CRETE_DEF_KPROBE(func_name)                                                              \
         static int entry_handler_##func_name(struct kretprobe_instance *ri, struct pt_regs *regs); \
@@ -129,7 +141,7 @@ __CRETE_DEF_KPROBE_RET_CONCOLIC(dev_open);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(dev_set_drvdata);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(dev_warn);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(device_set_wakeup_enable);
-__CRETE_DEF_KPROBE_RET_CONCOLIC(dma_alloc_from_coherent);
+//__CRETE_DEF_KPROBE_RET_CONCOLIC(dma_alloc_from_coherent); // 0/1
 __CRETE_DEF_KPROBE_RET_CONCOLIC(dma_set_mask);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(dma_supported);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(down_timeout);
@@ -174,7 +186,7 @@ __CRETE_DEF_KPROBE_RET_CONCOLIC(pcix_get_mmrbc);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(pcix_set_mmrbc);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(probe_irq_off);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(pskb_expand_head);
-__CRETE_DEF_KPROBE_RET_CONCOLIC(register_netdev);
+//__CRETE_DEF_KPROBE_RET_CONCOLIC(register_netdev); // Cause false alarm of crashes, becuase of only flipping return
 __CRETE_DEF_KPROBE_RET_CONCOLIC(request_firmware);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(request_firmware_nowait);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(request_threaded_irq);
@@ -242,7 +254,7 @@ static inline int register_probes(void)
     __CRETE_REG_KPROBE(dev_set_drvdata);
     __CRETE_REG_KPROBE(dev_warn);
     __CRETE_REG_KPROBE(device_set_wakeup_enable);
-    __CRETE_REG_KPROBE(dma_alloc_from_coherent);
+//    __CRETE_REG_KPROBE(dma_alloc_from_coherent);
     __CRETE_REG_KPROBE(dma_set_mask);
     __CRETE_REG_KPROBE(dma_supported);
     __CRETE_REG_KPROBE(down_timeout);
@@ -287,7 +299,7 @@ static inline int register_probes(void)
     __CRETE_REG_KPROBE(pcix_set_mmrbc);
     __CRETE_REG_KPROBE(probe_irq_off);
     __CRETE_REG_KPROBE(pskb_expand_head);
-    __CRETE_REG_KPROBE(register_netdev);
+//    __CRETE_REG_KPROBE(register_netdev);
     __CRETE_REG_KPROBE(request_firmware);
     __CRETE_REG_KPROBE(request_firmware_nowait);
     __CRETE_REG_KPROBE(request_threaded_irq);
@@ -352,7 +364,7 @@ static inline void unregister_probes(void)
     __CRETE_UNREG_KPROBE(dev_set_drvdata);
     __CRETE_UNREG_KPROBE(dev_warn);
     __CRETE_UNREG_KPROBE(device_set_wakeup_enable);
-    __CRETE_UNREG_KPROBE(dma_alloc_from_coherent);
+//    __CRETE_UNREG_KPROBE(dma_alloc_from_coherent);
     __CRETE_UNREG_KPROBE(dma_set_mask);
     __CRETE_UNREG_KPROBE(dma_supported);
     __CRETE_UNREG_KPROBE(down_timeout);
@@ -397,7 +409,7 @@ static inline void unregister_probes(void)
     __CRETE_UNREG_KPROBE(pcix_set_mmrbc);
     __CRETE_UNREG_KPROBE(probe_irq_off);
     __CRETE_UNREG_KPROBE(pskb_expand_head);
-    __CRETE_UNREG_KPROBE(register_netdev);
+//    __CRETE_UNREG_KPROBE(register_netdev);
     __CRETE_UNREG_KPROBE(request_firmware);
     __CRETE_UNREG_KPROBE(request_firmware_nowait);
     __CRETE_UNREG_KPROBE(request_threaded_irq);
@@ -488,7 +500,7 @@ static int entry_handler_oops_enter(struct kretprobe_instance *ri, struct pt_reg
 {
     _crete_kernel_oops();
 
-    return 0;
+    return 1;
 }
 
 static int ret_handler_oops_enter(struct kretprobe_instance *ri, struct pt_regs *regs)
@@ -517,10 +529,25 @@ static int crete_kapi_module_event(struct notifier_block *self, unsigned long ev
         target_module.m_mod.core_size = m->core_size;
         target_module.m_mod.module_init = m->module_init;
         target_module.m_mod.init_size = m->init_size;
+
+        CRETE_DBG(
+        printk(KERN_INFO "[CRETE INFO] target_module:  m->module_core = %p,  m->module_size = %p\n",
+                (void *)m->module_core, (void *) m->core_size);
+        );
 #else
         target_module.m_mod.core_layout = m->core_layout;
         target_module.m_mod.init_layout = m->init_layout;
+
+        CRETE_DBG(
+        printk(KERN_INFO "[CRETE INFO] target_module:  m->module_core = %p,  m->module_size = %p\n",
+                (void *)m->core_layout.base, (void *) m->core_layout.size);
+        );
 #endif
+
+        CRETE_RC(
+        reset_crete_rc();
+        );
+
         if(target_module_probes)
             _crete_register_probes_target_module();
         break;
@@ -528,6 +555,9 @@ static int crete_kapi_module_event(struct notifier_block *self, unsigned long ev
     case MODULE_STATE_GOING:
         printk(KERN_INFO "MODULE_STATE_GOING: %s\n", m->name);
         target_module.m_mod_loaded = 0;
+        CRETE_RC(
+        check_crete_rc_array();
+        );
         if(target_module_probes)
             _crete_unregister_probes_target_module();
         break;
@@ -555,6 +585,15 @@ static inline int init_crete_intrinsics(void)
         return -1;
     }
 
+    CRETE_RC(
+    _crete_get_current_target_pid = (void *)kallsyms_lookup_name("crete_get_current_target_pid");
+
+    if(!_crete_get_current_target_pid) {
+        printk(KERN_INFO "[crete] not all function found, please check crete-intrinsics-replay.ko\n");
+        return -1;
+    }
+    );
+
     _crete_register_probes_target_module = (void *)kallsyms_lookup_name("crete_register_probes_e1000");
     _crete_unregister_probes_target_module = (void *)kallsyms_lookup_name("crete_unregister_probes_e1000");
 
@@ -573,6 +612,11 @@ static int __init crete_kprobe_init(void)
     if(init_crete_intrinsics())
         return -1;
 
+    CRETE_RC(
+    if(register_probes_crete_rc())
+        return -1;
+    );
+
     if(register_probes())
         return -1;
 
@@ -588,6 +632,10 @@ static void __exit crete_kprobe_exit(void)
 {
     unregister_module_notifier(&crete_kapi_module_probe);
     unregister_probes();
+
+    CRETE_RC(
+    unregister_probes_crete_rc();
+    );
 }
 
 module_init(crete_kprobe_init)
