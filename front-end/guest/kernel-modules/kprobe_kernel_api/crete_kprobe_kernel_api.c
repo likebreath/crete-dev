@@ -612,13 +612,15 @@ static int __init crete_kprobe_init(void)
     if(init_crete_intrinsics())
         return -1;
 
+    if(register_probes())
+        return -1;
+
+    // XXX Assumption: probes on the same address will
+    // be executed in the order as they are registered.
     CRETE_RC(
     if(register_probes_crete_rc())
         return -1;
     );
-
-    if(register_probes())
-        return -1;
 
     target_module.m_name_size = strlen(target_module.m_name);
     register_module_notifier(&crete_kapi_module_probe);
