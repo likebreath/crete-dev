@@ -545,7 +545,7 @@ static int crete_kapi_module_event(struct notifier_block *self, unsigned long ev
 #endif
 
         CRETE_RC(
-        reset_crete_rc();
+        crete_resource_checker_start();
         );
 
         if(target_module_probes)
@@ -556,7 +556,7 @@ static int crete_kapi_module_event(struct notifier_block *self, unsigned long ev
         printk(KERN_INFO "MODULE_STATE_GOING: %s\n", m->name);
         target_module.m_mod_loaded = 0;
         CRETE_RC(
-        check_crete_rc_array();
+        crete_resource_checker_finish();
         );
         if(target_module_probes)
             _crete_unregister_probes_target_module();
