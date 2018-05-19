@@ -43,7 +43,7 @@ static inline int crete_resource_checker_alloc_return(struct kretprobe_instance 
 static inline int crete_resource_checker_free_return(struct kretprobe_instance *ri,
         struct pt_regs *regs, const char *info);
 
-#define __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(alloc_func, alloc_arg_index, free_func)           \
+#define __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(alloc_func, alloc_arg_index)                      \
         static int entry_handler_cl_##alloc_func(struct kretprobe_instance *ri,                     \
                 struct pt_regs *regs)                                                               \
         {                                                                                           \
@@ -106,64 +106,203 @@ static inline int crete_resource_checker_free_return(struct kretprobe_instance *
         if(kallsyms_lookup_name(#func_name))                                            \
         {                                                                               \
             unregister_kretprobe(&rc_kretp_##func_name);                                \
-            printk(KERN_INFO "[CRETE INFO] Missed probing %d instances of %s.\n",       \
+            if(rc_kretp_##func_name.nmissed != 0)                                       \
+                printk(KERN_INFO "[CRETE INFO] Missed probing %d instances of %s.\n",   \
                     rc_kretp_##func_name.nmissed, rc_kretp_##func_name.kp.symbol_name); \
         }
 
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(add_timer, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(alloc_etherdev_mqs, -1);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(__alloc_workqueue_key, -1);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(device_create_file, 1);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(dma_pool_alloc, -1);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(dma_pool_create, -1);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(ioremap_nocache, -1);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(__kmalloc, -1);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(led_classdev_register, 1);
+//__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(mod_timer, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(__netdev_alloc_skb, -1);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(pci_enable_device, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(pci_enable_device_mem, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(pci_enable_msi_block, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(pci_enable_msix, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(pci_iomap, -1);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(pci_ioremap_bar, -1);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(pci_request_regions, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(pci_request_selected_regions, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(pci_request_selected_regions_exclusive, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(pci_set_mwi, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(pm_qos_add_request, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(register_netdev, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(request_threaded_irq, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(scsi_add_host_with_dma, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(scsi_host_alloc, -1);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(usb_alloc_coherent, -1);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(usb_alloc_urb, -1);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(usb_register_driver, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(vzalloc, -1);
+
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(consume_skb, 0);
+//__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(del_timer, 0);
+//__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(del_timer_sync, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(destroy_workqueue, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(device_remove_file, 1);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(dev_kfree_skb_any, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(dev_kfree_skb_irq, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(dma_pool_destroy, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(dma_pool_free, 1);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(free_irq, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(free_netdev, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(iounmap, 0);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(kfree, 0);
-__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(__kmalloc, -1, kfree);
-__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(kmem_cache_alloc_trace, -1, kfree);
-__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(__kmalloc_node, -1, kfree);
-
-__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(vfree, 0);
-__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(vzalloc, -1, vfree);
-
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(kfree_skb, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(led_classdev_unregister, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(pci_clear_mwi, 0);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(pci_disable_device, 0);
-__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(pci_enable_device, 0, pci_disable_device);
-__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(pci_enable_device_mem, 0, pci_disable_device);
-
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(pci_disable_msi, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(pci_disable_msix, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(pci_iounmap, 1);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(pci_release_regions, 0);
-__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(pci_request_regions, 0, pci_release_regions);
-__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(pci_request_selected_regions_exclusive, 0, pci_release_regions);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(pci_release_selected_regions, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(pm_qos_remove_request, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(scsi_host_put, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(scsi_remove_host, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(unregister_netdev, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(usb_deregister, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(usb_free_coherent, 2);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(usb_free_urb, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(vfree, 0);
 
 static inline int register_probes_crete_rc(void)
 {
-    __CRETE_REG_KPROBE_RC(kfree);
+    __CRETE_REG_KPROBE_RC(add_timer);
+    __CRETE_REG_KPROBE_RC(alloc_etherdev_mqs);
+    __CRETE_REG_KPROBE_RC(__alloc_workqueue_key);
+    __CRETE_REG_KPROBE_RC(device_create_file);
+    __CRETE_REG_KPROBE_RC(dma_pool_alloc);
+    __CRETE_REG_KPROBE_RC(dma_pool_create);
+    __CRETE_REG_KPROBE_RC(ioremap_nocache);
     __CRETE_REG_KPROBE_RC(__kmalloc);
-    __CRETE_REG_KPROBE_RC(kmem_cache_alloc_trace);
-    __CRETE_REG_KPROBE_RC(__kmalloc_node);
-
-    __CRETE_REG_KPROBE_RC(vfree);
-    __CRETE_REG_KPROBE_RC(vzalloc);
-
-    __CRETE_REG_KPROBE_RC(pci_disable_device);
+    __CRETE_REG_KPROBE_RC(led_classdev_register);
+//    __CRETE_REG_KPROBE_RC(mod_timer);
+    __CRETE_REG_KPROBE_RC(__netdev_alloc_skb);
     __CRETE_REG_KPROBE_RC(pci_enable_device);
     __CRETE_REG_KPROBE_RC(pci_enable_device_mem);
-
-    __CRETE_REG_KPROBE_RC(pci_release_regions);
+    __CRETE_REG_KPROBE_RC(pci_enable_msi_block);
+    __CRETE_REG_KPROBE_RC(pci_enable_msix);
+    __CRETE_REG_KPROBE_RC(pci_iomap);
+    __CRETE_REG_KPROBE_RC(pci_ioremap_bar);
     __CRETE_REG_KPROBE_RC(pci_request_regions);
+    __CRETE_REG_KPROBE_RC(pci_request_selected_regions);
     __CRETE_REG_KPROBE_RC(pci_request_selected_regions_exclusive);
+    __CRETE_REG_KPROBE_RC(pci_set_mwi);
+    __CRETE_REG_KPROBE_RC(pm_qos_add_request);
+    __CRETE_REG_KPROBE_RC(register_netdev);
+    __CRETE_REG_KPROBE_RC(request_threaded_irq);
+    __CRETE_REG_KPROBE_RC(scsi_add_host_with_dma);
+    __CRETE_REG_KPROBE_RC(scsi_host_alloc);
+    __CRETE_REG_KPROBE_RC(usb_alloc_coherent);
+    __CRETE_REG_KPROBE_RC(usb_alloc_urb);
+    __CRETE_REG_KPROBE_RC(usb_register_driver);
+    __CRETE_REG_KPROBE_RC(vzalloc);
+
+    __CRETE_REG_KPROBE_RC(consume_skb);
+//    __CRETE_REG_KPROBE_RC(del_timer);
+//    __CRETE_REG_KPROBE_RC(del_timer_sync);
+    __CRETE_REG_KPROBE_RC(destroy_workqueue);
+    __CRETE_REG_KPROBE_RC(device_remove_file);
+    __CRETE_REG_KPROBE_RC(dev_kfree_skb_any);
+    __CRETE_REG_KPROBE_RC(dev_kfree_skb_irq);
+    __CRETE_REG_KPROBE_RC(dma_pool_destroy);
+    __CRETE_REG_KPROBE_RC(dma_pool_free);
+    __CRETE_REG_KPROBE_RC(free_irq);
+    __CRETE_REG_KPROBE_RC(free_netdev);
+    __CRETE_REG_KPROBE_RC(iounmap);
+    __CRETE_REG_KPROBE_RC(kfree);
+    __CRETE_REG_KPROBE_RC(kfree_skb);
+    __CRETE_REG_KPROBE_RC(led_classdev_unregister);
+    __CRETE_REG_KPROBE_RC(pci_clear_mwi);
+    __CRETE_REG_KPROBE_RC(pci_disable_device);
+    __CRETE_REG_KPROBE_RC(pci_disable_msi);
+    __CRETE_REG_KPROBE_RC(pci_disable_msix);
+    __CRETE_REG_KPROBE_RC(pci_iounmap);
+    __CRETE_REG_KPROBE_RC(pci_release_regions);
+    __CRETE_REG_KPROBE_RC(pci_release_selected_regions);
+    __CRETE_REG_KPROBE_RC(pm_qos_remove_request);
+    __CRETE_REG_KPROBE_RC(scsi_host_put);
+    __CRETE_REG_KPROBE_RC(scsi_remove_host);
+    __CRETE_REG_KPROBE_RC(unregister_netdev);
+    __CRETE_REG_KPROBE_RC(usb_deregister);
+    __CRETE_REG_KPROBE_RC(usb_free_coherent);
+    __CRETE_REG_KPROBE_RC(usb_free_urb);
+    __CRETE_REG_KPROBE_RC(vfree);
 
     return 0;
 }
 
 static inline void unregister_probes_crete_rc(void)
 {
-    __CRETE_UNREG_KPROBE_RC(kfree);
+    __CRETE_UNREG_KPROBE_RC(add_timer);
+    __CRETE_UNREG_KPROBE_RC(alloc_etherdev_mqs);
+    __CRETE_UNREG_KPROBE_RC(__alloc_workqueue_key);
+    __CRETE_UNREG_KPROBE_RC(device_create_file);
+    __CRETE_UNREG_KPROBE_RC(dma_pool_alloc);
+    __CRETE_UNREG_KPROBE_RC(dma_pool_create);
+    __CRETE_UNREG_KPROBE_RC(ioremap_nocache);
     __CRETE_UNREG_KPROBE_RC(__kmalloc);
-    __CRETE_UNREG_KPROBE_RC(kmem_cache_alloc_trace);
-    __CRETE_UNREG_KPROBE_RC(__kmalloc_node);
-
-    __CRETE_UNREG_KPROBE_RC(vfree);
-    __CRETE_UNREG_KPROBE_RC(vzalloc);
-
-    __CRETE_UNREG_KPROBE_RC(pci_disable_device);
+    __CRETE_UNREG_KPROBE_RC(led_classdev_register);
+//    __CRETE_UNREG_KPROBE_RC(mod_timer);
+    __CRETE_UNREG_KPROBE_RC(__netdev_alloc_skb);
     __CRETE_UNREG_KPROBE_RC(pci_enable_device);
     __CRETE_UNREG_KPROBE_RC(pci_enable_device_mem);
-
-    __CRETE_UNREG_KPROBE_RC(pci_release_regions);
+    __CRETE_UNREG_KPROBE_RC(pci_enable_msi_block);
+    __CRETE_UNREG_KPROBE_RC(pci_enable_msix);
+    __CRETE_UNREG_KPROBE_RC(pci_iomap);
+    __CRETE_UNREG_KPROBE_RC(pci_ioremap_bar);
     __CRETE_UNREG_KPROBE_RC(pci_request_regions);
+    __CRETE_UNREG_KPROBE_RC(pci_request_selected_regions);
     __CRETE_UNREG_KPROBE_RC(pci_request_selected_regions_exclusive);
+    __CRETE_UNREG_KPROBE_RC(pci_set_mwi);
+    __CRETE_UNREG_KPROBE_RC(pm_qos_add_request);
+    __CRETE_UNREG_KPROBE_RC(register_netdev);
+    __CRETE_UNREG_KPROBE_RC(request_threaded_irq);
+    __CRETE_UNREG_KPROBE_RC(scsi_add_host_with_dma);
+    __CRETE_UNREG_KPROBE_RC(scsi_host_alloc);
+    __CRETE_UNREG_KPROBE_RC(usb_alloc_coherent);
+    __CRETE_UNREG_KPROBE_RC(usb_alloc_urb);
+    __CRETE_UNREG_KPROBE_RC(usb_register_driver);
+    __CRETE_UNREG_KPROBE_RC(vzalloc);
+
+    __CRETE_UNREG_KPROBE_RC(consume_skb);
+//    __CRETE_UNREG_KPROBE_RC(del_timer);
+//    __CRETE_UNREG_KPROBE_RC(del_timer_sync);
+    __CRETE_UNREG_KPROBE_RC(destroy_workqueue);
+    __CRETE_UNREG_KPROBE_RC(device_remove_file);
+    __CRETE_UNREG_KPROBE_RC(dev_kfree_skb_any);
+    __CRETE_UNREG_KPROBE_RC(dev_kfree_skb_irq);
+    __CRETE_UNREG_KPROBE_RC(dma_pool_destroy);
+    __CRETE_UNREG_KPROBE_RC(dma_pool_free);
+    __CRETE_UNREG_KPROBE_RC(free_irq);
+    __CRETE_UNREG_KPROBE_RC(free_netdev);
+    __CRETE_UNREG_KPROBE_RC(iounmap);
+    __CRETE_UNREG_KPROBE_RC(kfree);
+    __CRETE_UNREG_KPROBE_RC(kfree_skb);
+    __CRETE_UNREG_KPROBE_RC(led_classdev_unregister);
+    __CRETE_UNREG_KPROBE_RC(pci_clear_mwi);
+    __CRETE_UNREG_KPROBE_RC(pci_disable_device);
+    __CRETE_UNREG_KPROBE_RC(pci_disable_msi);
+    __CRETE_UNREG_KPROBE_RC(pci_disable_msix);
+    __CRETE_UNREG_KPROBE_RC(pci_iounmap);
+    __CRETE_UNREG_KPROBE_RC(pci_release_regions);
+    __CRETE_UNREG_KPROBE_RC(pci_release_selected_regions);
+    __CRETE_UNREG_KPROBE_RC(pm_qos_remove_request);
+    __CRETE_UNREG_KPROBE_RC(scsi_host_put);
+    __CRETE_UNREG_KPROBE_RC(scsi_remove_host);
+    __CRETE_UNREG_KPROBE_RC(unregister_netdev);
+    __CRETE_UNREG_KPROBE_RC(usb_deregister);
+    __CRETE_UNREG_KPROBE_RC(usb_free_coherent);
+    __CRETE_UNREG_KPROBE_RC(usb_free_urb);
+    __CRETE_UNREG_KPROBE_RC(vfree);
 }
 
 static inline void crete_resource_checker_panic(void)
@@ -349,7 +488,7 @@ static inline int crete_resource_checker_free_return(struct kretprobe_instance *
 }
 
 // =======================================
-#define CRETE_RESOURCE_CHECKER_ALLOC_LIST_SIZE 512
+#define CRETE_RESOURCE_CHECKER_ALLOC_LIST_SIZE 1024
 static int cret_rc_mutex_failed_count = 0; // not protected by MUTEX
 
 static DEFINE_MUTEX(crete_rc_mutex);
@@ -357,6 +496,7 @@ static DEFINE_MUTEX(crete_rc_mutex);
 // 1. The good side is that this supports multiple free functions for multiple alloc functions, e.g. '__netdev_alloc_skb' related
 // 2. The bad side is that this only matches free func with alloc func by values, which might be problematic, e.g.
 //    pci_enable/disable_device() and pci_request/release_regions() takes same pointer input to alloc/free different memories
+
 static struct CRETE_RC_ALLOC_INFO crete_rc_array[CRETE_RESOURCE_CHECKER_ALLOC_LIST_SIZE];
 static uint16_t crete_rc_array_size = 0;
 static int crete_rc_potential_bugs = 0;
@@ -428,7 +568,7 @@ static inline int crete_resource_checker_free_internal(size_t free_value, size_t
         printk(KERN_INFO "[CRETE REPORT] Potential bug: double free, free_value = %p, free_site = %p [%s].\n",
                 (void *)free_value, (void *)free_site, info);
 
-        ++crete_rc_potential_bugs;
+//        ++crete_rc_potential_bugs;
         mutex_unlock(&crete_rc_mutex);
         return -RC_REPORT_BUG;
     }
