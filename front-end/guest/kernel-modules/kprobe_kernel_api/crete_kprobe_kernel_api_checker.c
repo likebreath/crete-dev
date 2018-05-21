@@ -477,11 +477,10 @@ static inline int crete_resource_checker_free_return(struct kretprobe_instance *
 
     if(free_value == 0)
     {
-        printk(KERN_INFO  "[CRETE ERROR] 'crete_resource_checker_free()': free_value == 0, free_site = %p [%s]\n",
+        printk(KERN_INFO  "[CRETE Warning] 'crete_resource_checker_free()': free_value == 0, free_site = %p [%s]\n",
                 (void *)free_site, info);
 
-        crete_resource_checker_panic();
-        return -RC_FATAL;
+        return 0;
     }
 
     return crete_resource_checker_free_internal(free_value, free_site, info);
