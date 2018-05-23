@@ -141,6 +141,11 @@ __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(usb_alloc_coherent, -1);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(usb_alloc_urb, -1);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(usb_register_driver, 0);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(vzalloc, -1);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(__alloc_pages_nodemask, -1);
+//__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(__alloc_skb, -1);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(__request_region, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(kmem_cache_alloc_trace, -1);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(__alloc_ei_netdev, -1);
 
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(consume_skb, 0);
 //__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(del_timer, 0);
@@ -172,6 +177,9 @@ __CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(usb_deregister, 0);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(usb_free_coherent, 2);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(usb_free_urb, 0);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(vfree, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(put_page, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(__release_region, 0);
+
 
 static inline int register_probes_crete_rc(void)
 {
@@ -205,6 +213,11 @@ static inline int register_probes_crete_rc(void)
     __CRETE_REG_KPROBE_RC(usb_alloc_urb);
     __CRETE_REG_KPROBE_RC(usb_register_driver);
     __CRETE_REG_KPROBE_RC(vzalloc);
+    __CRETE_REG_KPROBE_RC(__alloc_pages_nodemask);
+//    __CRETE_REG_KPROBE_RC(__alloc_skb);
+    __CRETE_REG_KPROBE_RC(__request_region);
+    __CRETE_REG_KPROBE_RC(kmem_cache_alloc_trace);
+    __CRETE_REG_KPROBE_RC(__alloc_ei_netdev);
 
     __CRETE_REG_KPROBE_RC(consume_skb);
 //    __CRETE_REG_KPROBE_RC(del_timer);
@@ -236,6 +249,9 @@ static inline int register_probes_crete_rc(void)
     __CRETE_REG_KPROBE_RC(usb_free_coherent);
     __CRETE_REG_KPROBE_RC(usb_free_urb);
     __CRETE_REG_KPROBE_RC(vfree);
+    __CRETE_REG_KPROBE_RC(put_page);
+    __CRETE_REG_KPROBE_RC(__release_region);
+
 
     return 0;
 }
@@ -272,6 +288,11 @@ static inline void unregister_probes_crete_rc(void)
     __CRETE_UNREG_KPROBE_RC(usb_alloc_urb);
     __CRETE_UNREG_KPROBE_RC(usb_register_driver);
     __CRETE_UNREG_KPROBE_RC(vzalloc);
+    __CRETE_UNREG_KPROBE_RC(__alloc_pages_nodemask);
+//    __CRETE_UNREG_KPROBE_RC(__alloc_skb);
+    __CRETE_UNREG_KPROBE_RC(__request_region);
+    __CRETE_UNREG_KPROBE_RC(kmem_cache_alloc_trace);
+    __CRETE_UNREG_KPROBE_RC(__alloc_ei_netdev);
 
     __CRETE_UNREG_KPROBE_RC(consume_skb);
 //    __CRETE_UNREG_KPROBE_RC(del_timer);
@@ -303,6 +324,8 @@ static inline void unregister_probes_crete_rc(void)
     __CRETE_UNREG_KPROBE_RC(usb_free_coherent);
     __CRETE_UNREG_KPROBE_RC(usb_free_urb);
     __CRETE_UNREG_KPROBE_RC(vfree);
+    __CRETE_UNREG_KPROBE_RC(put_page);
+    __CRETE_UNREG_KPROBE_RC(__release_region);
 }
 
 static inline void crete_resource_checker_panic(void)
