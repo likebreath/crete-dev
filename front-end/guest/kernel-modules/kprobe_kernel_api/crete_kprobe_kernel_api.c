@@ -94,6 +94,7 @@ static uint32_t (*_crete_get_current_target_pid)(void);
 /* ------------------------------- */
 // Define interested functions to hook
 __CRETE_DEF_KPROBE(oops_enter);
+__CRETE_DEF_KPROBE(warn_slowpath_null);
 
 // -------------------------------------------
 // 1. Pointer return with failure on NULL (28)
@@ -208,6 +209,7 @@ __CRETE_DEF_KPROBE_RET_CONCOLIC(skb_pad);
 static inline int register_probes(void)
 {
     __CRETE_REG_KPROBE(oops_enter);
+    __CRETE_REG_KPROBE(warn_slowpath_null);
 
     // -------------------------------------------
     // 1. Pointer return with failure on NULL (28)
@@ -318,6 +320,7 @@ static inline int register_probes(void)
 static inline void unregister_probes(void)
 {
     __CRETE_UNREG_KPROBE(oops_enter);
+    __CRETE_UNREG_KPROBE(warn_slowpath_null);
 
     // -------------------------------------------
     // 1. Pointer return with failure on NULL (28)
@@ -505,6 +508,18 @@ static int entry_handler_oops_enter(struct kretprobe_instance *ri, struct pt_reg
 
 static int ret_handler_oops_enter(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
+    return 0;
+}
+
+static int entry_handler_warn_slowpath_null(struct kretprobe_instance *ri, struct pt_regs *regs)
+{
+    return 0;
+}
+
+static int ret_handler_warn_slowpath_null(struct kretprobe_instance *ri, struct pt_regs *regs)
+{
+    panic("[CRETE REPORT] potential warning!\n");
+
     return 0;
 }
 
