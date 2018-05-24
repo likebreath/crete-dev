@@ -110,7 +110,6 @@ __CRETE_DEF_KPROBE_RET_CONCOLIC(__request_region);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(alloc_etherdev_mqs);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(alloc_pages_current);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(build_skb);
-__CRETE_DEF_KPROBE_RET_CONCOLIC(dev_get_drvdata);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(dma_pool_alloc);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(dma_pool_create);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(ioremap_nocache);
@@ -127,6 +126,7 @@ __CRETE_DEF_KPROBE_RET_CONCOLIC(snd_info_create_card_entry);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pci_quirk_lookup);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(trace_event_buffer_reserve);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(vzalloc);
+//__CRETE_DEF_KPROBE_RET_CONCOLIC(dev_get_drvdata); // False alarm: seems always return non-NULL value, based on e1000 maintainer
 
 // ------------------------------------------
 // 2. Integer return with negative on failure
@@ -142,7 +142,6 @@ __CRETE_DEF_KPROBE_RET_CONCOLIC(dev_open);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(dev_set_drvdata);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(dev_warn);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(device_set_wakeup_enable);
-//__CRETE_DEF_KPROBE_RET_CONCOLIC(dma_alloc_from_coherent); // 0/1
 __CRETE_DEF_KPROBE_RET_CONCOLIC(dma_set_mask);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(dma_supported);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(down_timeout);
@@ -187,7 +186,6 @@ __CRETE_DEF_KPROBE_RET_CONCOLIC(pcix_get_mmrbc);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(pcix_set_mmrbc);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(probe_irq_off);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(pskb_expand_head);
-//__CRETE_DEF_KPROBE_RET_CONCOLIC(register_netdev); // Cause false alarm of crashes, becuase of only flipping return
 __CRETE_DEF_KPROBE_RET_CONCOLIC(request_firmware);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(request_firmware_nowait);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(request_threaded_irq);
@@ -197,6 +195,8 @@ __CRETE_DEF_KPROBE_RET_CONCOLIC(set_memory_wc);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(set_pages_array_wb);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(set_pages_array_wc);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(skb_pad);
+//__CRETE_DEF_KPROBE_RET_CONCOLIC(dma_alloc_from_coherent); // 0/1
+//__CRETE_DEF_KPROBE_RET_CONCOLIC(register_netdev); // xxx False alarm: crashes, because of only flipping return
 
 // -------
 // 3. Others
@@ -225,7 +225,6 @@ static inline int register_probes(void)
     __CRETE_REG_KPROBE(alloc_etherdev_mqs);
     __CRETE_REG_KPROBE(alloc_pages_current);
     __CRETE_REG_KPROBE(build_skb);
-    __CRETE_REG_KPROBE(dev_get_drvdata);
     __CRETE_REG_KPROBE(dma_pool_alloc);
     __CRETE_REG_KPROBE(dma_pool_create);
     __CRETE_REG_KPROBE(ioremap_nocache);
@@ -256,7 +255,6 @@ static inline int register_probes(void)
     __CRETE_REG_KPROBE(dev_set_drvdata);
     __CRETE_REG_KPROBE(dev_warn);
     __CRETE_REG_KPROBE(device_set_wakeup_enable);
-//    __CRETE_REG_KPROBE(dma_alloc_from_coherent);
     __CRETE_REG_KPROBE(dma_set_mask);
     __CRETE_REG_KPROBE(dma_supported);
     __CRETE_REG_KPROBE(down_timeout);
@@ -301,7 +299,6 @@ static inline int register_probes(void)
     __CRETE_REG_KPROBE(pcix_set_mmrbc);
     __CRETE_REG_KPROBE(probe_irq_off);
     __CRETE_REG_KPROBE(pskb_expand_head);
-//    __CRETE_REG_KPROBE(register_netdev);
     __CRETE_REG_KPROBE(request_firmware);
     __CRETE_REG_KPROBE(request_firmware_nowait);
     __CRETE_REG_KPROBE(request_threaded_irq);
@@ -336,7 +333,6 @@ static inline void unregister_probes(void)
     __CRETE_UNREG_KPROBE(alloc_etherdev_mqs);
     __CRETE_UNREG_KPROBE(alloc_pages_current);
     __CRETE_UNREG_KPROBE(build_skb);
-    __CRETE_UNREG_KPROBE(dev_get_drvdata);
     __CRETE_UNREG_KPROBE(dma_pool_alloc);
     __CRETE_UNREG_KPROBE(dma_pool_create);
     __CRETE_UNREG_KPROBE(ioremap_nocache);
@@ -367,7 +363,6 @@ static inline void unregister_probes(void)
     __CRETE_UNREG_KPROBE(dev_set_drvdata);
     __CRETE_UNREG_KPROBE(dev_warn);
     __CRETE_UNREG_KPROBE(device_set_wakeup_enable);
-//    __CRETE_UNREG_KPROBE(dma_alloc_from_coherent);
     __CRETE_UNREG_KPROBE(dma_set_mask);
     __CRETE_UNREG_KPROBE(dma_supported);
     __CRETE_UNREG_KPROBE(down_timeout);
@@ -412,7 +407,6 @@ static inline void unregister_probes(void)
     __CRETE_UNREG_KPROBE(pcix_set_mmrbc);
     __CRETE_UNREG_KPROBE(probe_irq_off);
     __CRETE_UNREG_KPROBE(pskb_expand_head);
-//    __CRETE_UNREG_KPROBE(register_netdev);
     __CRETE_UNREG_KPROBE(request_firmware);
     __CRETE_UNREG_KPROBE(request_firmware_nowait);
     __CRETE_UNREG_KPROBE(request_threaded_irq);
