@@ -48,6 +48,10 @@ static set<string> init_ptr_ret_funcs()
     list.insert("snd_pci_quirk_lookup");
     list.insert("trace_event_buffer_reserve");
     list.insert("vzalloc");
+    list.insert("__alloc_workqueue_key");
+    list.insert("__kmalloc_node");
+    list.insert("kmalloc_order_trace");
+    list.insert("kmem_cache_alloc");
 
     return list;
 };
