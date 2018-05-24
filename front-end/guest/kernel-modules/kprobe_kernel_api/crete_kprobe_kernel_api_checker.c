@@ -148,6 +148,11 @@ __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(__alloc_pages_nodemask, -1);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC_SPECIAL(__request_region, 0, RC_FT_NULL_PTR);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(kmem_cache_alloc_trace, -1);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(__alloc_ei_netdev, -1);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(__kmalloc_node, -1);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(kmalloc_order_trace, -1);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(kmem_cache_alloc, -1);
+
+//__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC_SPECIAL(netif_napi_add, 1, RC_FT_VOID);
 //__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC_SPECIAL(add_timer, 0, RC_FT_VOID);
 //__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(mod_timer, 0);
 //__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(__netdev_alloc_skb, -1);
@@ -176,6 +181,7 @@ __CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(unregister_netdev, 0);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(vfree, 0);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(put_page, 0);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(__release_region, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(__free_pages, 0);
 //__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(del_timer, 0);
 //__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(del_timer_sync, 0);
 //__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(consume_skb, 0);
@@ -213,6 +219,9 @@ static inline int register_probes_crete_rc(void)
     __CRETE_REG_KPROBE_RC(__request_region);
     __CRETE_REG_KPROBE_RC(kmem_cache_alloc_trace);
     __CRETE_REG_KPROBE_RC(__alloc_ei_netdev);
+    __CRETE_REG_KPROBE_RC(__kmalloc_node);
+    __CRETE_REG_KPROBE_RC(kmalloc_order_trace);
+    __CRETE_REG_KPROBE_RC(kmem_cache_alloc);
 
     __CRETE_REG_KPROBE_RC(destroy_workqueue);
     __CRETE_REG_KPROBE_RC(device_remove_file);
@@ -237,7 +246,7 @@ static inline int register_probes_crete_rc(void)
     __CRETE_REG_KPROBE_RC(vfree);
     __CRETE_REG_KPROBE_RC(put_page);
     __CRETE_REG_KPROBE_RC(__release_region);
-
+    __CRETE_REG_KPROBE_RC(__free_pages);
 
     return 0;
 }
@@ -272,6 +281,9 @@ static inline void unregister_probes_crete_rc(void)
     __CRETE_UNREG_KPROBE_RC(__request_region);
     __CRETE_UNREG_KPROBE_RC(kmem_cache_alloc_trace);
     __CRETE_UNREG_KPROBE_RC(__alloc_ei_netdev);
+    __CRETE_UNREG_KPROBE_RC(__kmalloc_node);
+    __CRETE_UNREG_KPROBE_RC(kmalloc_order_trace);
+    __CRETE_UNREG_KPROBE_RC(kmem_cache_alloc);
 
     __CRETE_UNREG_KPROBE_RC(destroy_workqueue);
     __CRETE_UNREG_KPROBE_RC(device_remove_file);
@@ -296,6 +308,7 @@ static inline void unregister_probes_crete_rc(void)
     __CRETE_UNREG_KPROBE_RC(vfree);
     __CRETE_UNREG_KPROBE_RC(put_page);
     __CRETE_UNREG_KPROBE_RC(__release_region);
+    __CRETE_UNREG_KPROBE_RC(__free_pages);
 }
 
 static inline void crete_resource_checker_panic(void)
