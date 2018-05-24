@@ -19,6 +19,12 @@ enum CRETE_RC_ERROR
     RC_FATAL = 1989,
 };
 
+enum CRETE_RC_ALLOC_FAILURE_TYPE
+{
+    RC_FT_NORMAL = 1,   // Failure with non-zero int return, e.g. 'int pci_enable_device(alloc_ptr)'
+    RC_FT_NULL_PTR = 2, // Failure with NULL (zero) ptr return, e.g. 'void *__request_region(alloc_ptr)'
+    RC_FT_VOID = 3, // Never fail: return void, e.g. 'void add_timer()'
+};
 struct CRETE_RC_ALLOC_INFO
 {
     size_t alloc_value;
@@ -39,11 +45,11 @@ static inline int crete_resource_checker_alloc_entry(struct kretprobe_instance *
 static inline int crete_resource_checker_free_entry(struct kretprobe_instance *ri,
         struct pt_regs *regs, int target_arg_indx, const char *info);
 static inline int crete_resource_checker_alloc_return(struct kretprobe_instance *ri,
-        struct pt_regs *regs, int target_arg_indx, const char *info);
+        struct pt_regs *regs, int target_arg_indx, const char *info, const int failure_type);
 static inline int crete_resource_checker_free_return(struct kretprobe_instance *ri,
         struct pt_regs *regs, const char *info);
 
-#define __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(alloc_func, alloc_arg_index)                      \
+#define __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC_SPECIAL(alloc_func, alloc_arg_index, ft)          \
         static int entry_handler_cl_##alloc_func(struct kretprobe_instance *ri,                     \
                 struct pt_regs *regs)                                                               \
         {                                                                                           \
@@ -58,7 +64,7 @@ static inline int crete_resource_checker_free_return(struct kretprobe_instance *
         }                                                                                           \
         static int ret_handler_cl_##alloc_func(struct kretprobe_instance *ri, struct pt_regs *regs) \
         {                                                                                           \
-            crete_resource_checker_alloc_return(ri, regs, alloc_arg_index, #alloc_func);            \
+            crete_resource_checker_alloc_return(ri, regs, alloc_arg_index, #alloc_func, ft);        \
             return 0;                                                                               \
         }                                                                                           \
         static struct kretprobe rc_kretp_##alloc_func= {                                            \
@@ -68,6 +74,9 @@ static inline int crete_resource_checker_free_return(struct kretprobe_instance *
                 .data_size = sizeof(struct CRETE_RC_INFO),                                          \
                 .maxactive = NR_CPUS,                                                               \
         };
+
+#define __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(alloc_func, alloc_arg_index)                      \
+        __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC_SPECIAL(alloc_func, alloc_arg_index, RC_FT_NORMAL)
 
 #define __CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(free_func, free_arg_index)                         \
         static int entry_handler_cl_##free_func(struct kretprobe_instance *ri, struct pt_regs *regs)\
@@ -136,10 +145,10 @@ __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(scsi_add_host_with_dma, 0);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(scsi_host_alloc, -1);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(vzalloc, -1);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(__alloc_pages_nodemask, -1);
-__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(__request_region, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC_SPECIAL(__request_region, 0, RC_FT_NULL_PTR);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(kmem_cache_alloc_trace, -1);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(__alloc_ei_netdev, -1);
-//__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(add_timer, 0);
+//__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC_SPECIAL(add_timer, 0, RC_FT_VOID);
 //__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(mod_timer, 0);
 //__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(__netdev_alloc_skb, -1);
 //__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(__alloc_skb, -1);
@@ -397,7 +406,7 @@ static inline int crete_resource_checker_free_entry(struct kretprobe_instance *r
 
 static inline int crete_resource_checker_alloc_internal(size_t alloc_value, size_t alloc_site, const char *info);
 static inline int crete_resource_checker_alloc_return(struct kretprobe_instance *ri,
-        struct pt_regs *regs, int target_arg_indx, const char *info)
+        struct pt_regs *regs, int target_arg_indx, const char *info, const int failure_type)
 {
     size_t alloc_value;
     size_t alloc_site;
@@ -418,11 +427,13 @@ static inline int crete_resource_checker_alloc_return(struct kretprobe_instance 
         }
     } else {
         alloc_value = ((struct CRETE_RC_INFO *)ri->data)->info_value;
-        if(regs_return_value(regs) != 0)
+
+        if( ((failure_type == RC_FT_NORMAL) && (regs_return_value(regs) != 0)) ||
+                ((failure_type == RC_FT_NULL_PTR) && (regs_return_value(regs) == 0)) )
         {
             printk(KERN_INFO  "[CRETE WARNING] crete_rc_alloc_return(): "
-                    "skipping alloc_value = %p [%s] as its return value is not 0 (indicating an alloc failure)]!\n",
-                    (void *)alloc_value, info);
+                    "alloc failure from '%s' with ret = %lu, skipping alloc_value = %p!\n",
+                    info, regs_return_value(regs), (void *)alloc_value);
             return -RC_SKIPPED;
         }
     }
