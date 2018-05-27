@@ -97,7 +97,7 @@ __CRETE_DEF_KPROBE(oops_enter);
 __CRETE_DEF_KPROBE(warn_slowpath_null);
 
 // -------------------------------------------
-// 1. Pointer return with failure on NULL (32)
+// 1. Pointer return with failure on NULL (35)
 // -------------------------------------------
 __CRETE_DEF_KPROBE_RET_CONCOLIC(__alloc_ei_netdev);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(__alloc_pages_nodemask); // invoked from a loop in e1000
@@ -130,6 +130,10 @@ __CRETE_DEF_KPROBE_RET_CONCOLIC(__alloc_workqueue_key);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(__kmalloc_node);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(kmalloc_order_trace);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(kmem_cache_alloc);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_hda_spdif_out_of_nid);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pcm_lib_default_mmap);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(__symbol_get);
+
 //__CRETE_DEF_KPROBE_RET_CONCOLIC(dev_get_drvdata); // False alarm: seems always return non-NULL value, based on e1000 maintainer
 
 // ------------------------------------------
@@ -143,7 +147,6 @@ __CRETE_DEF_KPROBE_RET_CONCOLIC(_dev_info);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(dev_close);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(dev_err);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(dev_open);
-__CRETE_DEF_KPROBE_RET_CONCOLIC(dev_set_drvdata);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(dev_warn);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(device_set_wakeup_enable);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(dma_set_mask);
@@ -192,7 +195,6 @@ __CRETE_DEF_KPROBE_RET_CONCOLIC(probe_irq_off);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(pskb_expand_head);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(request_firmware);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(request_firmware_nowait);
-__CRETE_DEF_KPROBE_RET_CONCOLIC(request_threaded_irq);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(scsi_esp_register);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(set_memory_wb);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(set_memory_wc);
@@ -203,8 +205,63 @@ __CRETE_DEF_KPROBE_RET_CONCOLIC(pci_enable_msi_block);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(pci_enable_msix);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(pci_request_selected_regions_exclusive);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(scsi_add_host_with_dma);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(__pm_runtime_idle);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(__pm_runtime_resume);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(__request_module);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(set_pages_uc);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(set_pages_wb);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_ac97_bus);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_ac97_mixer);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_ac97_pcm_assign);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_ac97_pcm_close);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_ac97_pcm_double_rate_rules);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_ac97_pcm_open);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_ac97_set_rate);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_ac97_tune_hardware);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_ac97_update_bits);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_ac97_update_power);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_card_create);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_card_disconnect);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_card_free);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_card_proc_new);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_card_register);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_component_add);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_ctl_add);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_ctl_boolean_mono_info);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_dma_alloc_pages);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_hda_build_controls);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_hda_build_pcms);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_hda_bus_new);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_hdac_bus_alloc_stream_pages);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_hda_codec_configure);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_hda_codec_new);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_hda_codec_prepare);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_hda_lock_devices);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_hda_queue_unsol_event);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pcm_add_chmap_ctls);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pcm_format_width);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pcm_hw_constraint_integer);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pcm_hw_constraint_list);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pcm_hw_constraint_minmax);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pcm_hw_constraint_msbits);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pcm_hw_constraint_ratnums);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pcm_hw_constraint_step);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pcm_lib_free_pages);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pcm_lib_ioctl);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pcm_lib_malloc_pages);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pcm_lib_preallocate_pages_for_all);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pcm_limit_hw_rates);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pcm_new);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pcm_suspend_all);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_rawmidi_new);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_rawmidi_receive);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_rawmidi_transmit);
+
 //__CRETE_DEF_KPROBE_RET_CONCOLIC(dma_alloc_from_coherent); // 0/1
 //__CRETE_DEF_KPROBE_RET_CONCOLIC(register_netdev); // xxx False alarm: crashes, because of only flipping return
+//__CRETE_DEF_KPROBE_RET_CONCOLIC(request_threaded_irq); // xxx False alarm: crashes, because of only flipping return
+//__CRETE_DEF_KPROBE_RET_CONCOLIC(snd_device_new); // xxx False Alarm: crashes, because of only flipping return
+//__CRETE_DEF_KPROBE_RET_CONCOLIC(dev_set_drvdata); // Never fail
 
 // -------
 // 3. Others
@@ -220,7 +277,7 @@ static inline int register_probes(void)
     __CRETE_REG_KPROBE(warn_slowpath_null);
 
     // -------------------------------------------
-    // 1. Pointer return with failure on NULL (32)
+    // 1. Pointer return with failure on NULL (35)
     // -------------------------------------------
     __CRETE_REG_KPROBE(__alloc_ei_netdev);
     __CRETE_REG_KPROBE(__alloc_pages_nodemask);
@@ -253,6 +310,9 @@ static inline int register_probes(void)
     __CRETE_REG_KPROBE(__kmalloc_node);
     __CRETE_REG_KPROBE(kmalloc_order_trace);
     __CRETE_REG_KPROBE(kmem_cache_alloc);
+    __CRETE_REG_KPROBE(snd_hda_spdif_out_of_nid);
+    __CRETE_REG_KPROBE(snd_pcm_lib_default_mmap);
+    __CRETE_REG_KPROBE(__symbol_get);
 
     // ------------------------------------------
     // 2. Integer return with negative on failure
@@ -264,7 +324,6 @@ static inline int register_probes(void)
     __CRETE_REG_KPROBE(dev_close);
     __CRETE_REG_KPROBE(dev_err);
     __CRETE_REG_KPROBE(dev_open);
-    __CRETE_REG_KPROBE(dev_set_drvdata);
     __CRETE_REG_KPROBE(dev_warn);
     __CRETE_REG_KPROBE(device_set_wakeup_enable);
     __CRETE_REG_KPROBE(dma_set_mask);
@@ -313,7 +372,6 @@ static inline int register_probes(void)
     __CRETE_REG_KPROBE(pskb_expand_head);
     __CRETE_REG_KPROBE(request_firmware);
     __CRETE_REG_KPROBE(request_firmware_nowait);
-    __CRETE_REG_KPROBE(request_threaded_irq);
     __CRETE_REG_KPROBE(scsi_esp_register);
     __CRETE_REG_KPROBE(set_memory_wb);
     __CRETE_REG_KPROBE(set_memory_wc);
@@ -324,6 +382,57 @@ static inline int register_probes(void)
     __CRETE_REG_KPROBE(pci_enable_msix);
     __CRETE_REG_KPROBE(pci_request_selected_regions_exclusive);
     __CRETE_REG_KPROBE(scsi_add_host_with_dma);
+    __CRETE_REG_KPROBE(__pm_runtime_idle);
+    __CRETE_REG_KPROBE(__pm_runtime_resume);
+    __CRETE_REG_KPROBE(__request_module);
+    __CRETE_REG_KPROBE(set_pages_uc);
+    __CRETE_REG_KPROBE(set_pages_wb);
+    __CRETE_REG_KPROBE(snd_ac97_bus);
+    __CRETE_REG_KPROBE(snd_ac97_mixer);
+    __CRETE_REG_KPROBE(snd_ac97_pcm_assign);
+    __CRETE_REG_KPROBE(snd_ac97_pcm_close);
+    __CRETE_REG_KPROBE(snd_ac97_pcm_double_rate_rules);
+    __CRETE_REG_KPROBE(snd_ac97_pcm_open);
+    __CRETE_REG_KPROBE(snd_ac97_set_rate);
+    __CRETE_REG_KPROBE(snd_ac97_tune_hardware);
+    __CRETE_REG_KPROBE(snd_ac97_update_bits);
+    __CRETE_REG_KPROBE(snd_ac97_update_power);
+    __CRETE_REG_KPROBE(snd_card_create);
+    __CRETE_REG_KPROBE(snd_card_disconnect);
+    __CRETE_REG_KPROBE(snd_card_free);
+    __CRETE_REG_KPROBE(snd_card_proc_new);
+    __CRETE_REG_KPROBE(snd_card_register);
+    __CRETE_REG_KPROBE(snd_component_add);
+    __CRETE_REG_KPROBE(snd_ctl_add);
+    __CRETE_REG_KPROBE(snd_ctl_boolean_mono_info);
+    __CRETE_REG_KPROBE(snd_dma_alloc_pages);
+    __CRETE_REG_KPROBE(snd_hda_build_controls);
+    __CRETE_REG_KPROBE(snd_hda_build_pcms);
+    __CRETE_REG_KPROBE(snd_hda_bus_new);
+    __CRETE_REG_KPROBE(snd_hdac_bus_alloc_stream_pages);
+    __CRETE_REG_KPROBE(snd_hda_codec_configure);
+    __CRETE_REG_KPROBE(snd_hda_codec_new);
+    __CRETE_REG_KPROBE(snd_hda_codec_prepare);
+    __CRETE_REG_KPROBE(snd_hda_lock_devices);
+    __CRETE_REG_KPROBE(snd_hda_queue_unsol_event);
+    __CRETE_REG_KPROBE(snd_pcm_add_chmap_ctls);
+    __CRETE_REG_KPROBE(snd_pcm_format_width);
+    __CRETE_REG_KPROBE(snd_pcm_hw_constraint_integer);
+    __CRETE_REG_KPROBE(snd_pcm_hw_constraint_list);
+    __CRETE_REG_KPROBE(snd_pcm_hw_constraint_minmax);
+    __CRETE_REG_KPROBE(snd_pcm_hw_constraint_msbits);
+    __CRETE_REG_KPROBE(snd_pcm_hw_constraint_ratnums);
+    __CRETE_REG_KPROBE(snd_pcm_hw_constraint_step);
+    __CRETE_REG_KPROBE(snd_pcm_lib_free_pages);
+    __CRETE_REG_KPROBE(snd_pcm_lib_ioctl);
+    __CRETE_REG_KPROBE(snd_pcm_lib_malloc_pages);
+    __CRETE_REG_KPROBE(snd_pcm_lib_preallocate_pages_for_all);
+    __CRETE_REG_KPROBE(snd_pcm_limit_hw_rates);
+    __CRETE_REG_KPROBE(snd_pcm_new);
+    __CRETE_REG_KPROBE(snd_pcm_suspend_all);
+    __CRETE_REG_KPROBE(snd_rawmidi_new);
+    __CRETE_REG_KPROBE(snd_rawmidi_receive);
+    __CRETE_REG_KPROBE(snd_rawmidi_transmit);
 
 //    __CRETE_REG_KPROBE();
 
@@ -336,7 +445,7 @@ static inline void unregister_probes(void)
     __CRETE_UNREG_KPROBE(warn_slowpath_null);
 
     // -------------------------------------------
-    // 1. Pointer return with failure on NULL (32)
+    // 1. Pointer return with failure on NULL (35)
     // -------------------------------------------
     __CRETE_UNREG_KPROBE(__alloc_ei_netdev);
     __CRETE_UNREG_KPROBE(__alloc_pages_nodemask);
@@ -369,6 +478,9 @@ static inline void unregister_probes(void)
     __CRETE_UNREG_KPROBE(__kmalloc_node);
     __CRETE_UNREG_KPROBE(kmalloc_order_trace);
     __CRETE_UNREG_KPROBE(kmem_cache_alloc);
+    __CRETE_UNREG_KPROBE(snd_hda_spdif_out_of_nid);
+    __CRETE_UNREG_KPROBE(snd_pcm_lib_default_mmap);
+    __CRETE_UNREG_KPROBE(__symbol_get);
 
     // ------------------------------------------
     // 2. Integer return with negative on failure
@@ -380,7 +492,6 @@ static inline void unregister_probes(void)
     __CRETE_UNREG_KPROBE(dev_close);
     __CRETE_UNREG_KPROBE(dev_err);
     __CRETE_UNREG_KPROBE(dev_open);
-    __CRETE_UNREG_KPROBE(dev_set_drvdata);
     __CRETE_UNREG_KPROBE(dev_warn);
     __CRETE_UNREG_KPROBE(device_set_wakeup_enable);
     __CRETE_UNREG_KPROBE(dma_set_mask);
@@ -429,7 +540,6 @@ static inline void unregister_probes(void)
     __CRETE_UNREG_KPROBE(pskb_expand_head);
     __CRETE_UNREG_KPROBE(request_firmware);
     __CRETE_UNREG_KPROBE(request_firmware_nowait);
-    __CRETE_UNREG_KPROBE(request_threaded_irq);
     __CRETE_UNREG_KPROBE(scsi_esp_register);
     __CRETE_UNREG_KPROBE(set_memory_wb);
     __CRETE_UNREG_KPROBE(set_memory_wc);
@@ -440,6 +550,57 @@ static inline void unregister_probes(void)
     __CRETE_UNREG_KPROBE(pci_enable_msix);
     __CRETE_UNREG_KPROBE(pci_request_selected_regions_exclusive);
     __CRETE_UNREG_KPROBE(scsi_add_host_with_dma);
+    __CRETE_UNREG_KPROBE(__pm_runtime_idle);
+    __CRETE_UNREG_KPROBE(__pm_runtime_resume);
+    __CRETE_UNREG_KPROBE(__request_module);
+    __CRETE_UNREG_KPROBE(set_pages_uc);
+    __CRETE_UNREG_KPROBE(set_pages_wb);
+    __CRETE_UNREG_KPROBE(snd_ac97_bus);
+    __CRETE_UNREG_KPROBE(snd_ac97_mixer);
+    __CRETE_UNREG_KPROBE(snd_ac97_pcm_assign);
+    __CRETE_UNREG_KPROBE(snd_ac97_pcm_close);
+    __CRETE_UNREG_KPROBE(snd_ac97_pcm_double_rate_rules);
+    __CRETE_UNREG_KPROBE(snd_ac97_pcm_open);
+    __CRETE_UNREG_KPROBE(snd_ac97_set_rate);
+    __CRETE_UNREG_KPROBE(snd_ac97_tune_hardware);
+    __CRETE_UNREG_KPROBE(snd_ac97_update_bits);
+    __CRETE_UNREG_KPROBE(snd_ac97_update_power);
+    __CRETE_UNREG_KPROBE(snd_card_create);
+    __CRETE_UNREG_KPROBE(snd_card_disconnect);
+    __CRETE_UNREG_KPROBE(snd_card_free);
+    __CRETE_UNREG_KPROBE(snd_card_proc_new);
+    __CRETE_UNREG_KPROBE(snd_card_register);
+    __CRETE_UNREG_KPROBE(snd_component_add);
+    __CRETE_UNREG_KPROBE(snd_ctl_add);
+    __CRETE_UNREG_KPROBE(snd_ctl_boolean_mono_info);
+    __CRETE_UNREG_KPROBE(snd_dma_alloc_pages);
+    __CRETE_UNREG_KPROBE(snd_hda_build_controls);
+    __CRETE_UNREG_KPROBE(snd_hda_build_pcms);
+    __CRETE_UNREG_KPROBE(snd_hda_bus_new);
+    __CRETE_UNREG_KPROBE(snd_hdac_bus_alloc_stream_pages);
+    __CRETE_UNREG_KPROBE(snd_hda_codec_configure);
+    __CRETE_UNREG_KPROBE(snd_hda_codec_new);
+    __CRETE_UNREG_KPROBE(snd_hda_codec_prepare);
+    __CRETE_UNREG_KPROBE(snd_hda_lock_devices);
+    __CRETE_UNREG_KPROBE(snd_hda_queue_unsol_event);
+    __CRETE_UNREG_KPROBE(snd_pcm_add_chmap_ctls);
+    __CRETE_UNREG_KPROBE(snd_pcm_format_width);
+    __CRETE_UNREG_KPROBE(snd_pcm_hw_constraint_integer);
+    __CRETE_UNREG_KPROBE(snd_pcm_hw_constraint_list);
+    __CRETE_UNREG_KPROBE(snd_pcm_hw_constraint_minmax);
+    __CRETE_UNREG_KPROBE(snd_pcm_hw_constraint_msbits);
+    __CRETE_UNREG_KPROBE(snd_pcm_hw_constraint_ratnums);
+    __CRETE_UNREG_KPROBE(snd_pcm_hw_constraint_step);
+    __CRETE_UNREG_KPROBE(snd_pcm_lib_free_pages);
+    __CRETE_UNREG_KPROBE(snd_pcm_lib_ioctl);
+    __CRETE_UNREG_KPROBE(snd_pcm_lib_malloc_pages);
+    __CRETE_UNREG_KPROBE(snd_pcm_lib_preallocate_pages_for_all);
+    __CRETE_UNREG_KPROBE(snd_pcm_limit_hw_rates);
+    __CRETE_UNREG_KPROBE(snd_pcm_new);
+    __CRETE_UNREG_KPROBE(snd_pcm_suspend_all);
+    __CRETE_UNREG_KPROBE(snd_rawmidi_new);
+    __CRETE_UNREG_KPROBE(snd_rawmidi_receive);
+    __CRETE_UNREG_KPROBE(snd_rawmidi_transmit);
 
 //    __CRETE_UNREG_KPROBE();
 }
