@@ -151,6 +151,12 @@ __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(__alloc_ei_netdev, -1);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(__kmalloc_node, -1);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(kmalloc_order_trace, -1);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(kmem_cache_alloc, -1);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(snd_dma_alloc_pages, 3);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(snd_pcm_lib_malloc_pages, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(__pci_register_driver, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(snd_ac97_pcm_open, 0);
+//__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(snd_device_new, 0);   // xxx: called multiple time, and freed only once by snd_device_free
+//__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC(snd_card_proc_new, 0); // xxx: freed by snd_device_free()
 
 //__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC_SPECIAL(netif_napi_add, 1, RC_FT_VOID);
 //__CRETE_DEF_KPROBE_RESOURCE_MONITOR_ALLOC_SPECIAL(add_timer, 0, RC_FT_VOID);
@@ -182,6 +188,13 @@ __CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(vfree, 0);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(put_page, 0);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(__release_region, 0);
 __CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(__free_pages, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(snd_dma_free_pages, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(snd_pcm_lib_free_pages, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(pci_unregister_driver, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(snd_ac97_pcm_close, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(snd_card_free, 0);
+__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(snd_device_free, 0);
+
 //__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(del_timer, 0);
 //__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(del_timer_sync, 0);
 //__CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(consume_skb, 0);
@@ -222,6 +235,10 @@ static inline int register_probes_crete_rc(void)
     __CRETE_REG_KPROBE_RC(__kmalloc_node);
     __CRETE_REG_KPROBE_RC(kmalloc_order_trace);
     __CRETE_REG_KPROBE_RC(kmem_cache_alloc);
+    __CRETE_REG_KPROBE_RC(snd_dma_alloc_pages);
+    __CRETE_REG_KPROBE_RC(snd_pcm_lib_malloc_pages);
+    __CRETE_REG_KPROBE_RC(__pci_register_driver);
+    __CRETE_REG_KPROBE_RC(snd_ac97_pcm_open);
 
     __CRETE_REG_KPROBE_RC(destroy_workqueue);
     __CRETE_REG_KPROBE_RC(device_remove_file);
@@ -247,6 +264,12 @@ static inline int register_probes_crete_rc(void)
     __CRETE_REG_KPROBE_RC(put_page);
     __CRETE_REG_KPROBE_RC(__release_region);
     __CRETE_REG_KPROBE_RC(__free_pages);
+    __CRETE_REG_KPROBE_RC(snd_dma_free_pages);
+    __CRETE_REG_KPROBE_RC(snd_pcm_lib_free_pages);
+    __CRETE_REG_KPROBE_RC(pci_unregister_driver);
+    __CRETE_REG_KPROBE_RC(snd_ac97_pcm_close);
+    __CRETE_REG_KPROBE_RC(snd_card_free);
+    __CRETE_REG_KPROBE_RC(snd_device_free);
 
     return 0;
 }
@@ -284,6 +307,10 @@ static inline void unregister_probes_crete_rc(void)
     __CRETE_UNREG_KPROBE_RC(__kmalloc_node);
     __CRETE_UNREG_KPROBE_RC(kmalloc_order_trace);
     __CRETE_UNREG_KPROBE_RC(kmem_cache_alloc);
+    __CRETE_UNREG_KPROBE_RC(snd_dma_alloc_pages);
+    __CRETE_UNREG_KPROBE_RC(snd_pcm_lib_malloc_pages);
+    __CRETE_UNREG_KPROBE_RC(__pci_register_driver);
+    __CRETE_UNREG_KPROBE_RC(snd_ac97_pcm_open);
 
     __CRETE_UNREG_KPROBE_RC(destroy_workqueue);
     __CRETE_UNREG_KPROBE_RC(device_remove_file);
@@ -309,6 +336,12 @@ static inline void unregister_probes_crete_rc(void)
     __CRETE_UNREG_KPROBE_RC(put_page);
     __CRETE_UNREG_KPROBE_RC(__release_region);
     __CRETE_UNREG_KPROBE_RC(__free_pages);
+    __CRETE_UNREG_KPROBE_RC(snd_dma_free_pages);
+    __CRETE_UNREG_KPROBE_RC(snd_pcm_lib_free_pages);
+    __CRETE_UNREG_KPROBE_RC(pci_unregister_driver);
+    __CRETE_UNREG_KPROBE_RC(snd_ac97_pcm_close);
+    __CRETE_UNREG_KPROBE_RC(snd_card_free);
+    __CRETE_UNREG_KPROBE_RC(snd_device_free);
 }
 
 static inline void crete_resource_checker_panic(void)
@@ -370,8 +403,14 @@ static inline int crete_resource_checker_alloc_entry(struct kretprobe_instance *
     case 1: // arg[1]
         my_data->info_value = regs->dx;
         break;
-    case 2: // arg[3]
+    case 2: // arg[2]
         my_data->info_value = regs->cx;
+        break;
+    case 3: // arg[3]
+        my_data->info_value = regs_get_kernel_stack_nth(regs, 1);
+        break;
+    case 4: // arg[4]
+        my_data->info_value = regs_get_kernel_stack_nth(regs, 2);
         break;
     default:
         printk(KERN_INFO  "[CRETE ERROR] crete_resource_checker_alloc_entry(): "
@@ -402,7 +441,7 @@ static inline int crete_resource_checker_free_entry(struct kretprobe_instance *r
     case 1: // arg[1]
         my_data->info_value = regs->dx;
         break;
-    case 2: // arg[3]
+    case 2: // arg[2]
         my_data->info_value = regs->cx;
         break;
     default:
