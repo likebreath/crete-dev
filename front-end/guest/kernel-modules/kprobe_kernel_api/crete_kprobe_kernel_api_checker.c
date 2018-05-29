@@ -480,13 +480,17 @@ static inline int crete_resource_checker_alloc_return(struct kretprobe_instance 
     } else {
         alloc_value = ((struct CRETE_RC_INFO *)ri->data)->info_value;
 
-        if( ((failure_type == RC_FT_NORMAL) && (regs_return_value(regs) != 0)) ||
+        if( ((failure_type == RC_FT_NORMAL) && ((regs_return_value(regs) >> (sizeof(size_t)*8 - 1)) && 1)) ||
                 ((failure_type == RC_FT_NULL_PTR) && (regs_return_value(regs) == 0)) )
         {
             printk(KERN_INFO  "[CRETE WARNING] crete_rc_alloc_return(): "
                     "alloc failure from '%s' with ret = %lu, skipping alloc_value = %p!\n",
                     info, regs_return_value(regs), (void *)alloc_value);
             return -RC_SKIPPED;
+        } else if ((failure_type == RC_FT_NORMAL) && (regs_return_value(regs) != 0)) {
+            printk(KERN_INFO  "[CRETE WARNING] crete_rc_alloc_return(): "
+                    "alloc from '%s' with ret = %lu, alloc_value = %p!\n",
+                    info, regs_return_value(regs), (void *)alloc_value);
         }
     }
 
