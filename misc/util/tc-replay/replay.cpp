@@ -624,8 +624,22 @@ void CreteReplay::collect_gcov_result()
 static unsigned monitored_pid = 0;
 static unsigned monitored_timeout = 5;
 
+static void kernel_panic()
+{
+    fprintf(stderr, "kernel_panic!\n");
+
+    FILE *p = fopen("/proc/sysrq-trigger", "a");
+    fwrite("c", 1, 1, p);
+    fclose(p);
+
+    fprintf(stderr, "kernel_panic finish()!\n");
+}
+
 static void timeout_handler(int signum)
 {
+    // XXX: for now report every timeout with a kernel panic
+    kernel_panic();
+
     fprintf(stderr, "Send timeout (%d seconds) signal to its child process\n", monitored_timeout);
     assert(monitored_pid != 0);
     kill(monitored_pid, SIGUSR1);
