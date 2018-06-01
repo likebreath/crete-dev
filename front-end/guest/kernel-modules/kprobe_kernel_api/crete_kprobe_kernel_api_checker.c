@@ -351,7 +351,8 @@ static inline void crete_resource_checker_panic(void)
     panic("[CRETE] panic on CRETE-RC error\n");
 }
 
-static inline int crete_resource_checker_prelogue(size_t ret_addr)
+static inline int crete_resource_checker_prelogue(size_t ret_addr,
+        const struct TargetModuleInfo **target_module)
 {
     if(!crete_resource_checker_enable)
         return -RC_DISABLED;
@@ -367,8 +368,8 @@ static inline int crete_resource_checker_prelogue(size_t ret_addr)
 //    if(_crete_get_current_target_pid() != current->pid)
 //        return -RC_MIS_PID;
 
-    if(!(target_module.m_mod_loaded &&
-         (within_module_core(ret_addr, &target_module.m_mod))))
+    *target_module = find_target_module_info(ret_addr);
+    if(!(*target_module))
     {
         return -RC_OUT_MODULE;
     }
@@ -463,8 +464,9 @@ static inline int crete_resource_checker_alloc_return(struct kretprobe_instance 
     size_t alloc_value;
     size_t alloc_site;
     int ret_prelogue;
+    const struct TargetModuleInfo *target_module;
 
-    ret_prelogue = crete_resource_checker_prelogue((size_t)ri->ret_addr);
+    ret_prelogue = crete_resource_checker_prelogue((size_t)ri->ret_addr, &target_module);
     if(ret_prelogue) return ret_prelogue;
 
     if(target_arg_indx == -1)
@@ -495,9 +497,9 @@ static inline int crete_resource_checker_alloc_return(struct kretprobe_instance 
     }
 
 #if defined(__USED_OLD_MODULE_LAYOUT)
-    alloc_site = (unsigned long)ri->ret_addr - (unsigned long)target_module.m_mod.module_core;
+    alloc_site = (unsigned long)ri->ret_addr - (unsigned long)target_module->m_mod.module_core;
 #else
-    alloc_site = (unsigned long)ri->ret_addr - (unsigned long)target_module.m_mod.core_layout.base;
+    alloc_site = (unsigned long)ri->ret_addr - (unsigned long)target_module->m_mod.core_layout.base;
 #endif
 
     return crete_resource_checker_alloc_internal(alloc_value, alloc_site, info);
@@ -509,16 +511,17 @@ static inline int crete_resource_checker_free_return(struct kretprobe_instance *
 {
     size_t free_value;
     size_t free_site;
+    const struct TargetModuleInfo *target_module;
 
-    int ret_prelogue = crete_resource_checker_prelogue((size_t)ri->ret_addr);
+    int ret_prelogue = crete_resource_checker_prelogue((size_t)ri->ret_addr, &target_module);
     if(ret_prelogue) return ret_prelogue;
 
     free_value = ((struct CRETE_RC_INFO *)ri->data)->info_value;
 
 #if defined(__USED_OLD_MODULE_LAYOUT)
-    free_site = (unsigned long)ri->ret_addr - (unsigned long)target_module.m_mod.module_core;
+    free_site = (unsigned long)ri->ret_addr - (unsigned long)target_module->m_mod.module_core;
 #else
-    free_site = (unsigned long)ri->ret_addr - (unsigned long)target_module.m_mod.core_layout.base;
+    free_site = (unsigned long)ri->ret_addr - (unsigned long)target_module->m_mod.core_layout.base;
 #endif
 
     CRETE_DBG_RC(
@@ -605,8 +608,8 @@ static inline int crete_resource_checker_free_internal(size_t free_value, size_t
         if(crete_rc_array[i-1].alloc_value == free_value)
         {
             CRETE_DBG_RC(
-            printk(KERN_INFO "[CRETE INFO] match found: ptr = %p, alloc_site = %p, free_site = %p [%s].\n",
-                    (void *)free_value, (void *)(crete_rc_array[i-1].alloc_site), (void *)free_site, info);
+            printk(KERN_INFO "[CRETE INFO] match found: ptr = %p, alloc_site = %p, free_site = %p [%s], current_index = %u.\n",
+                    (void *)free_value, (void *)(crete_rc_array[i-1].alloc_site), (void *)free_site, info, crete_rc_array_size);
             );
             break;
         }
@@ -656,6 +659,11 @@ static inline void crete_resource_checker_start(void)
         crete_resource_checker_panic();
         return;
     }
+
+    CRETE_DBG_RC(
+    printk(KERN_INFO "[CRETE DEBUG] crete_resource_checker_start()\n");
+    );
+
     mutex_lock(&crete_rc_mutex);
 
     crete_resource_checker_enable = 1;
@@ -679,6 +687,11 @@ static inline void crete_resource_checker_finish(void)
         crete_resource_checker_panic();
         return;
     }
+
+    CRETE_DBG_RC(
+    printk(KERN_INFO "[CRETE DEBUG] crete_resource_checker_finish()\n");
+    );
+
     mutex_lock(&crete_rc_mutex);
 
     for(i = 0; i < crete_rc_array_size; ++i)

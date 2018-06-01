@@ -54,6 +54,9 @@ static int entry_handler_default(struct kretprobe_instance *ri, struct pt_regs *
 static int ret_handler_make_concolic(struct kretprobe_instance *ri, struct pt_regs *regs);
 
 #ifdef CRETE_ENABLE_RESOURCE_CHECKER
+static int target_module_count = 0;
+
+static const struct TargetModuleInfo *find_target_module_info(unsigned long addr);
 static uint32_t (*_crete_get_current_target_pid)(void);
 #include "crete_kprobe_kernel_api_checker.c"
 #endif
@@ -769,7 +772,9 @@ static int crete_kapi_module_event(struct notifier_block *self, unsigned long ev
 #endif
 
         CRETE_RC(
-        crete_resource_checker_start();
+        if(target_module_count == 0)
+            crete_resource_checker_start();
+        target_module_count++;
         );
 
         if(target_module_probes)
@@ -780,7 +785,10 @@ static int crete_kapi_module_event(struct notifier_block *self, unsigned long ev
         printk(KERN_INFO "MODULE_STATE_GOING: %s\n", m->name);
         target_module_info->m_mod_loaded = 0;
         CRETE_RC(
-        crete_resource_checker_finish();
+        if(target_module_count != 0)
+            target_module_count--;
+        if(target_module_count == 0)
+            crete_resource_checker_finish();
         );
         if(target_module_probes)
             _crete_unregister_probes_target_module();
