@@ -26,6 +26,8 @@ MODULE_DESCRIPTION("CRETE probes for kernel API functions to inject concolic val
 #endif
 static char crete_ksym_symbol[KSYM_SYMBOL_LEN*2];
 
+#define MAX_TARGET_MODULE_COUNT 8
+
 struct TargetModuleInfo
 {
     size_t m_name_size;
@@ -34,14 +36,12 @@ struct TargetModuleInfo
     struct module m_mod;
 };
 
-static struct TargetModuleInfo target_module = {
-        .m_name_size = 0,
-        .m_name = "",
-        .m_mod_loaded = 0,
-};
+static struct TargetModuleInfo target_modules[MAX_TARGET_MODULE_COUNT] = {{0}};
 
-module_param_named(target_module, target_module.m_name, charp, 0);
-MODULE_PARM_DESC(target_module, "The name of target module to enable probe on kernel APIs");
+static char *target_module_names[MAX_TARGET_MODULE_COUNT] = {NULL};
+static int argc_target_modules = 0;
+module_param_array(target_module_names, charp, &argc_target_modules, 0);
+MODULE_PARM_DESC(target_module_names, "The name of target modulse to enable probe on kernel APIs");
 
 static void (*_crete_make_concolic)(void*, size_t, const char *);
 static void (*_crete_kernel_oops)(void);
@@ -624,17 +624,29 @@ static int entry_handler_default(struct kretprobe_instance *ri, struct pt_regs *
         return 0;
 }
 
+static const struct TargetModuleInfo *find_target_module_info(unsigned long addr)
+{
+    int i = 0;
+    for(; i < argc_target_modules; ++i)
+    {
+        if(target_modules[i].m_mod_loaded &&
+             (within_module_core(addr, &target_modules[i].m_mod)))
+        {
+            return &target_modules[i];
+        }
+    }
+    return NULL;
+}
+
 // Only inject concolic values if:
 // 1. its caller is within target_module AND
 // 2. the convention on return value holds
 static int ret_handler_make_concolic(struct kretprobe_instance *ri, struct pt_regs *regs)
 {
     // NOTE: xxx inject concolics only for module_core (not for module_init)
-    if(!(target_module.m_mod_loaded &&
-         (within_module_core((unsigned long)ri->ret_addr, &target_module.m_mod))))
-    {
+    const struct TargetModuleInfo *target_module_info = find_target_module_info((unsigned long)ri->ret_addr);
+    if(!target_module_info)
         return 0;
-    }
 
     if(regs->ax != regs_return_value(regs))
     {
@@ -653,9 +665,9 @@ static int ret_handler_make_concolic(struct kretprobe_instance *ri, struct pt_re
         unsigned long offset;
 
 #if defined(__USED_OLD_MODULE_LAYOUT)
-        offset = (unsigned long)ri->ret_addr - (unsigned long)target_module.m_mod.module_core;
+        offset = (unsigned long)ri->ret_addr - (unsigned long)target_module_info->m_mod.module_core;
 #else
-        offset = (unsigned long)ri->ret_addr - (unsigned long)target_module.m_mod.core_layout.base;
+        offset = (unsigned long)ri->ret_addr - (unsigned long)target_module_info->m_mod.core_layout.base;
 #endif
 
         // Naming convention: func_name[mod_name.module_core+offset]
@@ -663,7 +675,7 @@ static int ret_handler_make_concolic(struct kretprobe_instance *ri, struct pt_re
         // and can be used with addr2line to find the line number in source
         // code, e.g.: 'eu-addr2line -f -e $(modinfo -n mod_name) -j .text offset'
         sprintf(crete_ksym_symbol, "%s[%s.module_core+%#lx]",
-                ri->rp->kp.symbol_name, target_module.m_name, offset);
+                ri->rp->kp.symbol_name, target_module_info->m_name, offset);
 
         CRETE_DBG(
         printk(KERN_INFO "ret_handler \'%s\': ret = %p (offset = %p)\n"
@@ -707,34 +719,52 @@ static int ret_handler_warn_slowpath_null(struct kretprobe_instance *ri, struct 
 static int crete_kapi_module_event(struct notifier_block *self, unsigned long event, void *data)
 {
     struct module *m = data;
+    struct TargetModuleInfo *target_module_info = NULL;
 
-    if(strlen(m->name) != target_module.m_name_size)
-        return NOTIFY_DONE;
+    int i = 0;
+    for(; i < argc_target_modules; ++i)
+    {
+        if(strlen(m->name) != target_modules[i].m_name_size)
+            continue;
 
-    if(strncmp(m->name, target_module.m_name, target_module.m_name_size) != 0)
+        if(strncmp(m->name, target_modules[i].m_name, target_modules[i].m_name_size) != 0)
+            continue;
+
+        target_module_info = &target_modules[i];
+
+        CRETE_DBG(
+        printk(KERN_INFO "[%d] target_modules: name = %s, loaded = %d, size = %zu\n",
+                i, target_module_info->m_name, target_module_info->m_mod_loaded,
+                target_module_info->m_name_size);
+        );
+        break;
+    }
+
+    if(target_module_info == NULL)
         return NOTIFY_DONE;
 
     switch (event) {
     case MODULE_STATE_COMING:
         printk(KERN_INFO "MODULE_STATE_COMING: %s\n", m->name);
-        target_module.m_mod_loaded = 1;
+        target_module_info->m_mod_loaded = 1;
 #if defined(__USED_OLD_MODULE_LAYOUT)
-        target_module.m_mod.module_core = m->module_core;
-        target_module.m_mod.core_size = m->core_size;
-        target_module.m_mod.module_init = m->module_init;
-        target_module.m_mod.init_size = m->init_size;
+        target_module_info->m_mod.module_core = m->module_core;
+        target_module_info->m_mod.core_size = m->core_size;
+        target_module_info->m_mod.module_init = m->module_init;
+        target_module_info->m_mod.init_size = m->init_size;
 
         CRETE_DBG(
         printk(KERN_INFO "[CRETE INFO] target_module:  m->module_core = %p,  m->module_size = %p\n",
-                (void *)m->module_core, (void *) m->core_size);
+                (void *)target_module_info->m_mod.module_core, (void *) target_module_info->m_mod.core_size);
         );
 #else
-        target_module.m_mod.core_layout = m->core_layout;
-        target_module.m_mod.init_layout = m->init_layout;
+        target_module_info->m_mod.core_layout = m->core_layout;
+        target_module_info->m_mod.init_layout = m->init_layout;
 
         CRETE_DBG(
         printk(KERN_INFO "[CRETE INFO] target_module:  m->module_core = %p,  m->module_size = %p\n",
-                (void *)m->core_layout.base, (void *) m->core_layout.size);
+                (void *)target_module_info->m_mod.core_layout.base,
+                (void *) target_module_info->m_mod.core_layout.size);
         );
 #endif
 
@@ -748,7 +778,7 @@ static int crete_kapi_module_event(struct notifier_block *self, unsigned long ev
 
     case MODULE_STATE_GOING:
         printk(KERN_INFO "MODULE_STATE_GOING: %s\n", m->name);
-        target_module.m_mod_loaded = 0;
+        target_module_info->m_mod_loaded = 0;
         CRETE_RC(
         crete_resource_checker_finish();
         );
@@ -801,6 +831,22 @@ static inline int init_crete_intrinsics(void)
     return 0;
 }
 
+static inline void init_crete_target_modules(void)
+{
+    int i = 0;
+    for(; i < argc_target_modules; ++i)
+    {
+        target_modules[i].m_name = target_module_names[i];
+        target_modules[i].m_name_size = strlen(target_modules[i].m_name);
+
+        CRETE_DBG(
+        printk(KERN_INFO "[%d] target_modules: name = %s, loaded = %d, size = %lu\n",
+                i, target_modules[i].m_name, target_modules[i].m_mod_loaded,
+                target_modules[i].m_name_size);
+        );
+    }
+}
+
 static int __init crete_kprobe_init(void)
 {
     if(init_crete_intrinsics())
@@ -816,7 +862,8 @@ static int __init crete_kprobe_init(void)
         return -1;
     );
 
-    target_module.m_name_size = strlen(target_module.m_name);
+    init_crete_target_modules();
+
     register_module_notifier(&crete_kapi_module_probe);
 
     CRETE_DBG(printk(KERN_INFO "size = %zu, name = %s\n", target_module.m_name_size, target_module.m_name););
