@@ -6,20 +6,26 @@
 set -e
 
 INPUT_DIR=$1
-TARGET_MODULE=$2
+TARGET_MODULES=$2
 CRETE_BIN_DIR="/home/test/guest-build/bin/"
 
 setup_replay()
 {
     # printf "dmesg -C\n"
     # printf "insmod /home/test/guest/kernel-modules/crete-intrinsics-replay/crete-intrinsics-replay.ko\n"
-    # printf "insmod /home/test/guest/kernel-modules/kprobe_kernel_api/crete_kprobe_kernel_api.ko target_module=\"$TARGET_MODULE\"\n"
-    # printf "rmmod $TARGET_MODULE\n"
+    # printf "insmod /home/test/guest/kernel-modules/kprobe_kernel_api/crete_kprobe_kernel_api.ko target_module_names=\"$TARGET_MODULES\"\n"
+    # IFS=',' read -ra tg_arr <<< "$TARGET_MODULES"
+    # for i in "${tg_arr[@]}"; do
+    #     printf "rmmod $i\n"
+    # done
 
     dmesg -C
     insmod /home/test/guest/kernel-modules/crete-intrinsics-replay/crete-intrinsics-replay.ko
-    insmod /home/test/guest/kernel-modules/kprobe_kernel_api/crete_kprobe_kernel_api.ko target_module="$TARGET_MODULE"
-    rmmod $TARGET_MODULE
+    insmod /home/test/guest/kernel-modules/kprobe_kernel_api/crete_kprobe_kernel_api.ko target_module_names="$TARGET_MODULES"
+    IFS=',' read -ra tg_arr <<< "$TARGET_MODULES"
+    for i in "${tg_arr[@]}"; do
+        rmmod $i
+    done
 }
 
 main()
@@ -39,6 +45,7 @@ main()
    fi
 
    REPLAY_CMD="-a $AUTO_REPLAY_DIR"
+   # REPLAY_CMD="-a $AUTO_REPLAY_DIR --clear-auto-replay"
    # printf "$CRETE_BIN_DIR/crete-tc-replay $REPLAY_CMD\n"
 
    setup_replay
