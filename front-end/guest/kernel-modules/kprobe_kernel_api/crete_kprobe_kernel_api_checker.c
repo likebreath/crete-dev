@@ -8,6 +8,17 @@
 #define CRETE_DBG_RM(x) do { } while(0)
 #endif
 
+struct CRETE_RM_INFO
+{
+    const char *m_target_func;
+
+    size_t m_value;
+    size_t m_ret;
+
+    size_t m_call_site;
+    const char *m_call_site_module;
+};
+
 enum CRETE_RM_ERROR
 {
     RM_REPORT_BUG = 1,
@@ -25,11 +36,6 @@ enum CRETE_RM_ALLOC_FAILURE_TYPE
     RM_FT_NULL_PTR = 2, // Failure with NULL (zero) ptr return, e.g. 'void *__request_region(alloc_ptr)'
     RM_FT_VOID = 3, // Never fail: return void, e.g. 'void add_timer()'
 };
-struct CRETE_RM_ALLOC_INFO
-{
-    size_t alloc_value;
-    size_t alloc_site;
-};
 
 struct CRETE_RM_KPROBE_INFO
 {
@@ -40,9 +46,7 @@ struct CRETE_RM_KPROBE_INFO
 // No mutex protection for read
 static int crete_resource_monitor_enable = 1;
 
-static inline int crete_resource_monitor_alloc_entry(struct kretprobe_instance *ri,
-        struct pt_regs *regs, int target_arg_indx, const char *info);
-static inline int crete_resource_monitor_free_entry(struct kretprobe_instance *ri,
+static inline int crete_resource_monitor_entry(struct kretprobe_instance *ri,
         struct pt_regs *regs, int target_arg_indx, const char *info);
 static inline int crete_resource_monitor_alloc_return(struct kretprobe_instance *ri,
         struct pt_regs *regs, int target_arg_indx, const char *info, const int failure_type);
@@ -55,7 +59,7 @@ static inline int crete_resource_monitor_free_return(struct kretprobe_instance *
         {                                                                                           \
             if(alloc_arg_index != -1)                                                               \
             {                                                                                       \
-                if(crete_resource_monitor_alloc_entry(ri, regs, alloc_arg_index, #alloc_func))      \
+                if(crete_resource_monitor_entry(ri, regs, alloc_arg_index, #alloc_func))            \
                 {                                                                                   \
                     return 1;                                                                       \
                 }                                                                                   \
@@ -81,7 +85,7 @@ static inline int crete_resource_monitor_free_return(struct kretprobe_instance *
 #define __CRETE_DEF_KPROBE_RESOURCE_MONITOR_FREE(free_func, free_arg_index)                         \
         static int entry_handler_cl_##free_func(struct kretprobe_instance *ri, struct pt_regs *regs)\
         {                                                                                           \
-            if(crete_resource_monitor_free_entry(ri, regs, free_arg_index, #free_func)) {           \
+            if(crete_resource_monitor_entry(ri, regs, free_arg_index, #free_func)) {                \
                 return 1;                                                                           \
             }                                                                                       \
             return 0;                                                                               \
@@ -377,22 +381,13 @@ static inline int crete_resource_monitor_prelogue(size_t ret_addr,
     return 0;
 }
 
-static inline int crete_resource_monitor_alloc_entry(struct kretprobe_instance *ri, struct pt_regs *regs,
+static inline int crete_resource_monitor_entry(struct kretprobe_instance *ri, struct pt_regs *regs,
         int target_arg_indx, const char *info)
 {
     struct CRETE_RM_KPROBE_INFO *my_data;
 
     if(!crete_resource_monitor_enable)
         return -RM_DISABLED;
-
-    if(target_arg_indx == -1)
-    {
-        printk(KERN_INFO  "[CRETE ERROR] crete_resource_monitor_alloc_entry(): "
-                "target_arg_indx = %d (should not be -1)!\n", target_arg_indx);
-
-        crete_resource_monitor_panic();
-        return -RM_FATAL;
-    }
 
     my_data = (struct CRETE_RM_KPROBE_INFO *)ri->data;
 
@@ -414,7 +409,7 @@ static inline int crete_resource_monitor_alloc_entry(struct kretprobe_instance *
         my_data->info_value = regs_get_kernel_stack_nth(regs, 2);
         break;
     default:
-        printk(KERN_INFO  "[CRETE ERROR] crete_resource_monitor_alloc_entry(): "
+        printk(KERN_INFO  "[CRETE ERROR] crete_resource_monitor_entry(): "
                 "invalid target_arg_indx = %d [%s]!\n", target_arg_indx, info);
 
         crete_resource_monitor_panic();
@@ -425,76 +420,28 @@ static inline int crete_resource_monitor_alloc_entry(struct kretprobe_instance *
     return 0;
 }
 
-static inline int crete_resource_monitor_free_entry(struct kretprobe_instance *ri,
-        struct pt_regs *regs, int target_arg_indx, const char *info) {
-    struct CRETE_RM_KPROBE_INFO *my_data;
+static inline int add_crete_rm_info(const char *target_func, size_t value, size_t ret,
+        size_t call_site, const char *call_site_module);
 
-    if(!crete_resource_monitor_enable)
-        return -RM_DISABLED;
-
-    my_data = (struct CRETE_RM_KPROBE_INFO *)ri->data;
-
-    switch(target_arg_indx)
-    {
-    case 0: // arg[0]
-        my_data->info_value = regs->ax;
-        break;
-    case 1: // arg[1]
-        my_data->info_value = regs->dx;
-        break;
-    case 2: // arg[2]
-        my_data->info_value = regs->cx;
-        break;
-    default:
-        printk(KERN_INFO  "[CRETE ERROR] crete_resource_monitor_free_entry(): "
-                "invalid target_arg_indx = %d [%s]!\n", target_arg_indx, info);
-
-        crete_resource_monitor_panic();
-        return -RM_FATAL;
-        break;
-    }
-
-    return 0;
-}
-
-static inline int crete_resource_monitor_alloc_internal(size_t alloc_value, size_t alloc_site, const char *info);
 static inline int crete_resource_monitor_alloc_return(struct kretprobe_instance *ri,
-        struct pt_regs *regs, int target_arg_indx, const char *info, const int failure_type)
+        struct pt_regs *regs, int target_arg_indx, const char *target_func_name, const int failure_type)
 {
     size_t alloc_value;
+    size_t ret_value;
     size_t alloc_site;
-    int ret_prelogue;
-    const struct TargetModuleInfo *target_module;
 
-    ret_prelogue = crete_resource_monitor_prelogue((size_t)ri->ret_addr, &target_module);
+    const struct TargetModuleInfo *target_module;
+    int ret_prelogue = crete_resource_monitor_prelogue((size_t)ri->ret_addr, &target_module);
     if(ret_prelogue) return ret_prelogue;
 
     if(target_arg_indx == -1)
     {
         alloc_value = regs_return_value(regs);
-        if(alloc_value == 0)
-        {
-            printk(KERN_INFO  "[CRETE WARNING] crete_rm_alloc_return(): "
-                    "skipping alloc_value = %p [%s] as its return value is 0 (indicating an alloc failure)]!\n",
-                    (void *)alloc_value, info);
-            return -RM_SKIPPED;
-        }
     } else {
         alloc_value = ((struct CRETE_RM_KPROBE_INFO *)ri->data)->info_value;
-
-        if( ((failure_type == RM_FT_NORMAL) && ((regs_return_value(regs) >> (sizeof(size_t)*8 - 1)) && 1)) ||
-                ((failure_type == RM_FT_NULL_PTR) && (regs_return_value(regs) == 0)) )
-        {
-            printk(KERN_INFO  "[CRETE WARNING] crete_rm_alloc_return(): "
-                    "alloc failure from '%s' with ret = %lu, skipping alloc_value = %p!\n",
-                    info, regs_return_value(regs), (void *)alloc_value);
-            return -RM_SKIPPED;
-        } else if ((failure_type == RM_FT_NORMAL) && (regs_return_value(regs) != 0)) {
-            printk(KERN_INFO  "[CRETE WARNING] crete_rm_alloc_return(): "
-                    "alloc from '%s' with ret = %lu, alloc_value = %p!\n",
-                    info, regs_return_value(regs), (void *)alloc_value);
-        }
     }
+
+    ret_value = regs_return_value(regs);
 
 #if defined(__USED_OLD_MODULE_LAYOUT)
     alloc_site = (unsigned long)ri->ret_addr - (unsigned long)target_module->m_mod.module_core;
@@ -502,21 +449,22 @@ static inline int crete_resource_monitor_alloc_return(struct kretprobe_instance 
     alloc_site = (unsigned long)ri->ret_addr - (unsigned long)target_module->m_mod.core_layout.base;
 #endif
 
-    return crete_resource_monitor_alloc_internal(alloc_value, alloc_site, info);
+    return add_crete_rm_info(target_func_name, alloc_value, ret_value, alloc_site, target_module->m_name);
 }
 
-static inline int crete_resource_monitor_free_internal(size_t free_value, size_t free_site, const char *info);
 static inline int crete_resource_monitor_free_return(struct kretprobe_instance *ri,
-        struct pt_regs *regs, const char *info)
+        struct pt_regs *regs, const char *target_func_name)
 {
     size_t free_value;
+    size_t ret_value;
     size_t free_site;
-    const struct TargetModuleInfo *target_module;
 
+    const struct TargetModuleInfo *target_module;
     int ret_prelogue = crete_resource_monitor_prelogue((size_t)ri->ret_addr, &target_module);
     if(ret_prelogue) return ret_prelogue;
 
     free_value = ((struct CRETE_RM_KPROBE_INFO *)ri->data)->info_value;
+    ret_value = regs_return_value(regs);
 
 #if defined(__USED_OLD_MODULE_LAYOUT)
     free_site = (unsigned long)ri->ret_addr - (unsigned long)target_module->m_mod.module_core;
@@ -526,127 +474,60 @@ static inline int crete_resource_monitor_free_return(struct kretprobe_instance *
 
     CRETE_DBG_RM(
     printk(KERN_INFO "[CRETE INFO] crete_rm_free() entered: free_value = %p, free_site = %p [%s].\n",
-            (void *)free_value, (void *)free_site, info);
+            (void *)free_value, (void *)free_site, target_func_name);
     );
 
     if(free_value == 0)
     {
         printk(KERN_INFO  "[CRETE Warning] 'crete_resource_monitor_free()': free_value == 0, free_site = %p [%s]\n",
-                (void *)free_site, info);
+                (void *)free_site, target_func_name);
 
         return 0;
     }
 
-    return crete_resource_monitor_free_internal(free_value, free_site, info);
+    return add_crete_rm_info(target_func_name, free_value, ret_value, free_site, target_module->m_name);
 }
 
 // =======================================
-#define CRETE_RESOURCE_MONITOR_ALLOC_LIST_SIZE 1024
+#define CRETE_RESOURCE_MONITOR_ARRAY_SIZE 1024
 static int crete_rm_mutex_failed_count = 0; // not protected by MUTEX
 
 static DEFINE_MUTEX(crete_rm_mutex);
-// TODO: XXX use a single array to hold alloc info
-// 1. The good side is that this supports multiple free functions for multiple alloc functions, e.g. '__netdev_alloc_skb' related
-// 2. The bad side is that this only matches free func with alloc func by values, which might be problematic, e.g.
-//    pci_enable/disable_device() and pci_request/release_regions() takes same pointer input to alloc/free different memories
+static struct CRETE_RM_INFO crete_rm_info_array[CRETE_RESOURCE_MONITOR_ARRAY_SIZE];
+static uint32_t crete_rm_info_count = 0;
 
-static struct CRETE_RM_ALLOC_INFO crete_rm_array[CRETE_RESOURCE_MONITOR_ALLOC_LIST_SIZE];
-static uint16_t crete_rm_array_size = 0;
-static int crete_rm_potential_bugs = 0;
-
-static inline int crete_resource_monitor_alloc_internal(size_t alloc_value, size_t alloc_site, const char *info)
-{
+static inline int add_crete_rm_info(const char *target_func, size_t value, size_t ret,
+        size_t call_site, const char *call_site_module) {
     if(mutex_is_locked(&crete_rm_mutex))
     {
         ++crete_rm_mutex_failed_count;
-        printk(KERN_INFO  "[CRETE INFO] crete_rm_alloc_inter(): mutex is locked %d [%s]\n",
-                crete_rm_mutex_failed_count, info);
+        printk(KERN_INFO  "[CRETE INFO] add_crete_rm_info(): mutex is locked %d ['%s' in '%s']\n",
+                crete_rm_mutex_failed_count, target_func, call_site_module);
         return -RM_MUTEX_LOCKED;
     }
 
     mutex_lock(&crete_rm_mutex);
 
-    CRETE_DBG_RM(
-    printk(KERN_INFO  "[CRETE INFO] crete_rm_alloc(): current_index = %u, alloc_value = %p, alloc_site = %p [%s]\n",
-            crete_rm_array_size, (void *)alloc_value, (void *)alloc_site, info);
-    );
-
-    if(crete_rm_array_size >= CRETE_RESOURCE_MONITOR_ALLOC_LIST_SIZE)
+    if(crete_rm_info_count >= CRETE_RESOURCE_MONITOR_ARRAY_SIZE)
     {
-        printk(KERN_INFO  "[CRETE ERROR] crete_resource_monitor_alloc_internal(): current_index = %u [%s]\n",
-                crete_rm_array_size, info);
+        printk(KERN_INFO  "[CRETE ERROR] add_crete_rm_info(): current_index = %u ['%s' in '%s']\n",
+                crete_rm_info_count, target_func, call_site_module);
 
-        crete_resource_monitor_panic();
         mutex_unlock(&crete_rm_mutex);
+        crete_resource_monitor_panic();
         return -RM_FATAL;
     }
 
-    crete_rm_array[crete_rm_array_size].alloc_value = alloc_value;
-    crete_rm_array[crete_rm_array_size].alloc_site = alloc_site;
-    ++crete_rm_array_size;
+    crete_rm_info_array[crete_rm_info_count].m_target_func = target_func;
+    crete_rm_info_array[crete_rm_info_count].m_value = value ;
+    crete_rm_info_array[crete_rm_info_count].m_ret = ret ;
+    crete_rm_info_array[crete_rm_info_count].m_call_site = call_site ;
+    crete_rm_info_array[crete_rm_info_count].m_call_site_module = call_site_module ;
+
+    crete_rm_info_count++;
 
     mutex_unlock(&crete_rm_mutex);
-    return 0;
-}
 
-static inline int crete_resource_monitor_free_internal(size_t free_value, size_t free_site, const char *info)
-{
-    int i;
-
-    if(mutex_is_locked(&crete_rm_mutex))
-    {
-        ++crete_rm_mutex_failed_count;
-        printk(KERN_INFO  "[CRETE INFO] crete_rm_alloc_inter(): mutex is locked %d [%s]\n",
-                crete_rm_mutex_failed_count, info);
-        return -RM_MUTEX_LOCKED;
-    }
-
-    mutex_lock(&crete_rm_mutex);
-
-    for(i = crete_rm_array_size; i > 0; --i)
-    {
-        if(crete_rm_array[i-1].alloc_value == free_value)
-        {
-            CRETE_DBG_RM(
-            printk(KERN_INFO "[CRETE INFO] match found: ptr = %p, alloc_site = %p, free_site = %p [%s], current_index = %u.\n",
-                    (void *)free_value, (void *)(crete_rm_array[i-1].alloc_site), (void *)free_site, info, crete_rm_array_size);
-            );
-            break;
-        }
-    }
-
-    // No match found
-    if(i == 0)
-    {
-        printk(KERN_INFO "[CRETE REPORT] Potential bug: double free, free_value = %p, free_site = %p [%s].\n",
-                (void *)free_value, (void *)free_site, info);
-
-//        ++crete_rm_potential_bugs;
-        mutex_unlock(&crete_rm_mutex);
-        return -RM_REPORT_BUG;
-    }
-
-    // Match found
-    if(crete_rm_array[i -1].alloc_value != free_value)
-    {
-        printk(KERN_INFO  "[CRETE ERROR] inconsistent match with 'free_value'\n");
-
-        crete_resource_monitor_panic();
-        mutex_unlock(&crete_rm_mutex);
-        return -RM_FATAL;
-    }
-
-    // Remove matched from alloc_array
-    for(;i < crete_rm_array_size; ++i)
-    {
-        crete_rm_array[i-1] = crete_rm_array[i];
-    }
-    crete_rm_array[i].alloc_site = 0;
-    crete_rm_array[i].alloc_value = 0;
-
-    --crete_rm_array_size;
-
-    mutex_unlock(&crete_rm_mutex);
     return 0;
 }
 
@@ -669,9 +550,8 @@ static inline void crete_resource_monitor_start(void)
     crete_resource_monitor_enable = 1;
     crete_rm_mutex_failed_count = 0;
 
-    memset(crete_rm_array, 0, sizeof(crete_rm_array));
-    crete_rm_array_size = 0;
-    crete_rm_potential_bugs = 0;
+    memset(crete_rm_info_array, 0, sizeof(crete_rm_info_array));
+    crete_rm_info_count = 0;
 
     mutex_unlock(&crete_rm_mutex);
 }
@@ -694,22 +574,19 @@ static inline void crete_resource_monitor_finish(void)
 
     mutex_lock(&crete_rm_mutex);
 
-    for(i = 0; i < crete_rm_array_size; ++i)
-    {
-        printk(KERN_INFO "[CRETE REPORT] Potential bug: 'resource leak',"
-                "alloc_site = %p, ptr = %p.\n",
-                (void *)(crete_rm_array[i].alloc_site),
-                (void *)(crete_rm_array[i].alloc_value));
-        ++crete_rm_potential_bugs;
-    }
-
-    if(crete_rm_potential_bugs != 0)
-    {
-        panic("[CRETE RC] panic on potential bugs: %d, crete_rm_mutex_failed_count = %d\n",
-                crete_rm_potential_bugs, crete_rm_mutex_failed_count);
-    }
-
     crete_resource_monitor_enable = 0;
+
+    CRETE_DBG_RM(
+    for(i = 0; i < crete_rm_info_count; ++i)
+    {
+        printk(KERN_INFO "[%d] %s, value = %zu, ret = %zu, call_site = %zu (%s)\n",
+                i, crete_rm_info_array[i].m_target_func,
+                crete_rm_info_array[i].m_value,
+                crete_rm_info_array[i].m_ret,
+                crete_rm_info_array[i].m_call_site,
+                crete_rm_info_array[i].m_call_site_module);
+    }
+    );
 
     mutex_unlock(&crete_rm_mutex);
 }
