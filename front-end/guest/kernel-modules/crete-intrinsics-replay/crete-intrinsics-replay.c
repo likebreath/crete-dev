@@ -328,6 +328,8 @@ static int get_unique_name(char *unique_name)
     len_un = strlen(unique_name);
     ret = 0;
 
+//    printk(KERN_INFO "[CRETE DBG] get_unique_name: input = %s\n", unique_name);
+
     // check for each existed names, and get the biggest suffix if prefix matches
     list_for_each(pos, &unique_names->list)
     {
@@ -340,8 +342,8 @@ static int get_unique_name(char *unique_name)
          {
              if(len_un == len_current)
              {
-                 strcpy(suffix, "_0"); // to be added by 1
-
+                 if(suffix[0] == '\0')
+                     strcpy(suffix, "_0"); // to be added by 1
              } else {
                  // Naming convention should be "name_pN_N"
                  if(current_name[len_un] != '_')
@@ -361,6 +363,8 @@ static int get_unique_name(char *unique_name)
                      }
                  }
              }
+
+//             printk(KERN_INFO "[CRETE DBG] get_unique_name: suffix = %s (current = %s)\n", suffix, current_name);
          }
     }
 
@@ -445,13 +449,16 @@ static int crete_make_conoclic_internal(void* addr, size_t size, const char* nam
                          name, size, tmp->size);
                  return -1;
              } else {
+//                 printk(KERN_INFO "[CRETE DBG] crete_make_conoclic_internal: match found in tc_list, \'%s\'\n",
+//                         name);
+
                  memcpy(addr, tmp->value, size);
                  return 1;
              }
          }
     }
 
-//    printk(KERN_INFO "[CRETE Warning] crete_make_conoclic_internal: no match found in tc_list, skip \'%s\'\n",
+//    printk(KERN_INFO "[CRETE DBG] crete_make_conoclic_internal: no match found in tc_list, skip \'%s\'\n",
 //            name);
 
     return 0;
