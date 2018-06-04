@@ -7,7 +7,7 @@ MODULE_AUTHOR("Bo Chen (chenbo@pdx.edu)");
 MODULE_DESCRIPTION("CRETE probes for kernel API functions to inject concolic values");
 
 //#define CRETE_ENABLE_DEBUG
-#define CRETE_ENABLE_RESOURCE_CHECKER
+#define CRETE_ENABLE_RESOURCE_MONITOR
 
 #ifdef CRETE_ENABLE_DEBUG
 #define CRETE_DBG(x) do { x } while(0)
@@ -15,10 +15,10 @@ MODULE_DESCRIPTION("CRETE probes for kernel API functions to inject concolic val
 #define CRETE_DBG(x) do { } while(0)
 #endif
 
-#ifdef CRETE_ENABLE_RESOURCE_CHECKER
-#define CRETE_RC(x) do { x } while(0)
+#ifdef CRETE_ENABLE_RESOURCE_MONITOR
+#define CRETE_RM(x) do { x } while(0)
 #else
-#define CRETE_RC(x) do { } while(0)
+#define CRETE_RM(x) do { } while(0)
 #endif
 
 #if defined(CRETE_USED_OLD_MODULE_LAYOUT)
@@ -53,7 +53,7 @@ static void (*_crete_unregister_probes_target_module)(void);
 static int entry_handler_default(struct kretprobe_instance *ri, struct pt_regs *regs);
 static int ret_handler_make_concolic(struct kretprobe_instance *ri, struct pt_regs *regs);
 
-#ifdef CRETE_ENABLE_RESOURCE_CHECKER
+#ifdef CRETE_ENABLE_RESOURCE_MONITOR
 static int target_module_count = 0;
 
 static const struct TargetModuleInfo *find_target_module_info(unsigned long addr);
@@ -775,9 +775,9 @@ static int crete_kapi_module_event(struct notifier_block *self, unsigned long ev
         );
 #endif
 
-        CRETE_RC(
+        CRETE_RM(
         if(target_module_count == 0)
-            crete_resource_checker_start();
+            crete_resource_monitor_start();
         target_module_count++;
         );
 
@@ -788,11 +788,11 @@ static int crete_kapi_module_event(struct notifier_block *self, unsigned long ev
     case MODULE_STATE_GOING:
         printk(KERN_INFO "MODULE_STATE_GOING: %s\n", m->name);
         target_module_info->m_mod_loaded = 0;
-        CRETE_RC(
+        CRETE_RM(
         if(target_module_count != 0)
             target_module_count--;
         if(target_module_count == 0)
-            crete_resource_checker_finish();
+            crete_resource_monitor_finish();
         );
         if(target_module_probes)
             _crete_unregister_probes_target_module();
@@ -821,7 +821,7 @@ static inline int init_crete_intrinsics(void)
         return -1;
     }
 
-    CRETE_RC(
+    CRETE_RM(
     _crete_get_current_target_pid = (void *)kallsyms_lookup_name("crete_get_current_target_pid");
 
     if(!_crete_get_current_target_pid) {
@@ -869,8 +869,8 @@ static int __init crete_kprobe_init(void)
 
     // XXX Assumption: probes on the same address will
     // be executed in the order as they are registered.
-    CRETE_RC(
-    if(register_probes_crete_rc())
+    CRETE_RM(
+    if(register_probes_crete_rm())
         return -1;
     );
 
@@ -888,8 +888,8 @@ static void __exit crete_kprobe_exit(void)
     unregister_module_notifier(&crete_kapi_module_probe);
     unregister_probes();
 
-    CRETE_RC(
-    unregister_probes_crete_rc();
+    CRETE_RM(
+    unregister_probes_crete_rm();
     );
 }
 
