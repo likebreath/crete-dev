@@ -681,13 +681,17 @@ static int ret_handler_make_concolic(struct kretprobe_instance *ri, struct pt_re
                 ri->rp->kp.symbol_name, target_module_info->m_name, offset);
 
         CRETE_DBG(
-        printk(KERN_INFO "ret_handler \'%s\': ret = %p (offset = %p)\n"
+        printk(KERN_INFO "[CRETE DBG] ret_handler \'%s\': ret = %p (offset = %p)\n"
                 "crete_ksym_symbol = %s\n",
                 ri->rp->kp.symbol_name, (void *)regs->ax, (void *)offset,
                 crete_ksym_symbol);
         );
 
         _crete_make_concolic(&regs->ax, sizeof(regs->ax), crete_ksym_symbol);
+
+        CRETE_DBG(
+        printk(KERN_INFO "[CRETE DBG] after _make_concolic: ret = %lu\n", regs->ax);
+        );
     }
 
     return 0;
