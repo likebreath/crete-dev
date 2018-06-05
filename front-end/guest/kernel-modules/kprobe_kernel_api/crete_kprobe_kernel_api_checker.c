@@ -1,4 +1,8 @@
 #include <linux/mutex.h>
+#include <linux/proc_fs.h>
+#include <asm/uaccess.h>
+
+#include "crete/kernel_api_resource_monitor.h"
 
 //#define CRETE_DEBUG_RM
 
@@ -7,17 +11,6 @@
 #else
 #define CRETE_DBG_RM(x) do { } while(0)
 #endif
-
-struct CRETE_RM_INFO
-{
-    const char *m_target_func;
-
-    size_t m_value;
-    size_t m_ret;
-
-    size_t m_call_site;
-    const char *m_call_site_module;
-};
 
 enum CRETE_RM_ERROR
 {
@@ -489,7 +482,6 @@ static inline int crete_resource_monitor_free_return(struct kretprobe_instance *
 }
 
 // =======================================
-#define CRETE_RESOURCE_MONITOR_ARRAY_SIZE 1024
 static int crete_rm_mutex_failed_count = 0; // not protected by MUTEX
 
 static DEFINE_MUTEX(crete_rm_mutex);
@@ -590,3 +582,72 @@ static inline void crete_resource_monitor_finish(void)
 
     mutex_unlock(&crete_rm_mutex);
 }
+
+// ----------------------------
+static ssize_t crete_rm_fops_read(struct file *sp_file, char __user *buf, size_t size, loff_t *offset)
+{
+    int i;
+    int name_size;
+    char __user *tmp_buf;
+    unsigned long err_ret;
+
+    if(size != ((sizeof(struct CRETE_RM_INFO) + CRETE_RESOUCE_MONITOR_NAME_SIZE*2)*CRETE_RESOURCE_MONITOR_ARRAY_SIZE))
+    {
+        printk(KERN_INFO  "[CRETE ERROR] crete_rm_fops_write(): incorrect array size: size = %zu\n"
+                "sizeof(struct CRETE_RM_INFO) = %zu, CRETE_RESOUCE_MONITOR_NAME_SIZE = %d, "
+                "CRETE_RESOURCE_MONITOR_ARRAY_SIZE = %d\n", size,
+                sizeof(struct CRETE_RM_INFO), CRETE_RESOUCE_MONITOR_NAME_SIZE,
+                CRETE_RESOURCE_MONITOR_ARRAY_SIZE);
+        return 0;
+    }
+
+    err_ret = copy_to_user(buf, crete_rm_info_array, sizeof(struct CRETE_RM_INFO)*crete_rm_info_count);
+    if(err_ret) {
+        printk(KERN_INFO  "[CRETE ERROR] crete_rm_fops_read(): copy_to_user(1) failed\n");
+        return 0;
+    }
+
+    tmp_buf = buf + sizeof(struct CRETE_RM_INFO)*CRETE_RESOURCE_MONITOR_ARRAY_SIZE;
+    for(i = 0; i < crete_rm_info_count; ++i)
+    {
+        name_size = strlen(crete_rm_info_array[i].m_target_func);
+        if(name_size > CRETE_RESOUCE_MONITOR_NAME_SIZE)
+        {
+            printk(KERN_INFO  "[CRETE ERROR] crete_rm_fops_read(): name_size = %d (bigger than limit %d)\n",
+                    name_size, CRETE_RESOUCE_MONITOR_NAME_SIZE);
+            return 0;
+        }
+        err_ret = copy_to_user(tmp_buf, crete_rm_info_array[i].m_target_func, name_size);
+        if(err_ret) {
+            printk(KERN_INFO  "[CRETE ERROR] crete_rm_fops_read(): copy_to_user(2) failed\n");
+            return 0;
+        }
+
+        tmp_buf += CRETE_RESOUCE_MONITOR_NAME_SIZE;
+    }
+
+    tmp_buf = buf + (sizeof(struct CRETE_RM_INFO) + CRETE_RESOUCE_MONITOR_NAME_SIZE)*CRETE_RESOURCE_MONITOR_ARRAY_SIZE;
+    for(i = 0; i < crete_rm_info_count; ++i)
+    {
+        name_size = strlen(crete_rm_info_array[i].m_call_site_module);
+        if(name_size > CRETE_RESOUCE_MONITOR_NAME_SIZE)
+        {
+            printk(KERN_INFO  "[CRETE ERROR] crete_rm_fops_read(): name_size = %d (bigger than limit %d)\n",
+                    name_size, CRETE_RESOUCE_MONITOR_NAME_SIZE);
+            return 0;
+        }
+        err_ret = copy_to_user(tmp_buf, crete_rm_info_array[i].m_call_site_module, name_size);
+        if(err_ret) {
+            printk(KERN_INFO  "[CRETE ERROR] crete_rm_fops_read(): copy_to_user(3) failed\n");
+            return 0;
+        }
+        tmp_buf += CRETE_RESOUCE_MONITOR_NAME_SIZE;
+    }
+
+    return crete_rm_info_count;
+}
+
+static struct file_operations crete_rm_fops = {
+        .owner = THIS_MODULE,
+        .read =  crete_rm_fops_read,
+};
