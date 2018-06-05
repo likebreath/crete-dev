@@ -872,6 +872,12 @@ static int __init crete_kprobe_init(void)
     CRETE_RM(
     if(register_probes_crete_rm())
         return -1;
+
+    if (!proc_create(CRETE_RESOURCE_MONITOR_PROCFS, 0666, NULL, &crete_rm_fops)) {
+        printk(KERN_INFO "[CRETE ERROR] can't create profs: %s\n", CRETE_RESOURCE_MONITOR_PROCFS);
+        remove_proc_entry(CRETE_RESOURCE_MONITOR_PROCFS, NULL);
+        return -1;
+    }
     );
 
     init_crete_target_modules();
@@ -890,6 +896,7 @@ static void __exit crete_kprobe_exit(void)
 
     CRETE_RM(
     unregister_probes_crete_rm();
+    remove_proc_entry(CRETE_RESOURCE_MONITOR_PROCFS, NULL);
     );
 }
 
