@@ -12,6 +12,8 @@
 #include <string>
 #include <vector>
 
+#include "kernel_api_resource_checker.hpp"
+
 using namespace std;
 namespace crete
 {
@@ -51,6 +53,8 @@ private:
     fs::path m_exploitable_out;
     fs::path m_exploitable_script;
 
+    mutable CreteKernalApiChecker m_crete_kapi_checker;
+
 public:
     CreteReplay(int argc, char* argv[]);
 
@@ -60,6 +64,8 @@ private:
 
     void init_auto_mode(fs::path &input, bool clear);
     void cleanup_auto_mode() const;
+    void auto_mode_pre_replay_tc(const string &tc) const;
+    void auto_mode_post_replay_tc() const;
     void check_and_remove_crash_count() const;
 
     void setup_launch();
