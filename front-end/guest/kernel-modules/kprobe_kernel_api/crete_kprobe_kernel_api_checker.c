@@ -23,13 +23,6 @@ enum CRETE_RM_ERROR
     RM_FATAL = 1989,
 };
 
-enum CRETE_RM_ALLOC_FAILURE_TYPE
-{
-    RM_FT_NORMAL = 1,   // Failure with non-zero int return, e.g. 'int pci_enable_device(alloc_ptr)'
-    RM_FT_NULL_PTR = 2, // Failure with NULL (zero) ptr return, e.g. 'void *__request_region(alloc_ptr)'
-    RM_FT_VOID = 3, // Never fail: return void, e.g. 'void add_timer()'
-};
-
 struct CRETE_RM_KPROBE_INFO
 {
     size_t info_value;

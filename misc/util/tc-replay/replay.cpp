@@ -624,11 +624,32 @@ void CreteReplay::collect_gcov_result()
 static unsigned monitored_pid = 0;
 static unsigned monitored_timeout = 5;
 
-static void kernel_panic()
+static inline void kernel_message(const char *kern_msg)
+{
+    FILE *p = fopen("/dev/kmsg", "w");
+    if(!p)
+    {
+        BOOST_THROW_EXCEPTION(Exception() << err::file_open_failed("/dev/kmsg"));
+    }
+
+    fwrite(kern_msg, strlen(kern_msg), 1, p);
+    fclose(p);
+}
+
+static inline void kernel_panic(const char *kern_msg)
 {
     fprintf(stderr, "kernel_panic!\n");
 
+    // 1. Write kernel message;
+    kernel_message("[CRETE-TC-REPLAY] kernel_panic()\n");
+    kernel_message(kern_msg);
+
+    // 2. Trigger kernel panic
     FILE *p = fopen("/proc/sysrq-trigger", "a");
+    if(!p)
+    {
+        BOOST_THROW_EXCEPTION(Exception() << err::file_open_failed("/proc/sysrq-trigger"));
+    }
     fwrite("c", 1, 1, p);
     fclose(p);
 
@@ -638,7 +659,7 @@ static void kernel_panic()
 static void timeout_handler(int signum)
 {
     // XXX: for now report every timeout with a kernel panic
-    kernel_panic();
+    kernel_panic("[CRETE Warning] crete-tc-replay time-out!\n");
 
     fprintf(stderr, "Send timeout (%d seconds) signal to its child process\n", monitored_timeout);
     assert(monitored_pid != 0);
@@ -850,8 +871,6 @@ static void setup_kernel_mode(const fs::path& current_tc)
     }
 }
 
-static void setup_auto_mode_resume_file(fs::path auto_mode_work_dir, fs::path current_tc);
-
 void CreteReplay::replay()
 {
     init_timeout_handler();
@@ -886,7 +905,7 @@ void CreteReplay::replay()
             break;
         }
 
-        setup_auto_mode_resume_file(m_auto_mode_path, *it);
+        auto_mode_pre_replay_tc(*it);
 
         // check for kernel mode
         setup_kernel_mode(*it);
@@ -997,7 +1016,7 @@ void CreteReplay::replay()
         }
         ofs_replay_log << "====================================================================\n";
 
-        check_and_remove_crash_count();
+        auto_mode_post_replay_tc();
     }
 
 //    collect_gcov_result();
@@ -1471,6 +1490,29 @@ void CreteReplay::check_and_remove_crash_count() const
     {
         fs::remove_all(m_auto_mode_path / crash_kdump_tmp_dir);
     }
+}
+
+static void setup_auto_mode_resume_file(fs::path auto_mode_work_dir, fs::path current_tc);
+void CreteReplay::auto_mode_pre_replay_tc(const string &tc) const
+{
+    setup_auto_mode_resume_file(m_auto_mode_path, tc);
+}
+
+void CreteReplay::auto_mode_post_replay_tc() const
+{
+    m_crete_kapi_checker.perform_check();
+    const vector<string> &bug_info = m_crete_kapi_checker.get_bug_info();
+    if(!bug_info.empty())
+    {
+        kernel_message("[CRETE REPORT] crete-tc-replay reporting bugs: \n");
+        for(vector<string>::const_iterator it = bug_info.begin(), ite = bug_info.end();
+                it != ite; ++it) {
+            kernel_message(it->c_str());
+        }
+        kernel_panic("[CRETE REPORT] Kernel API bugs detected.\n");
+    }
+
+    check_and_remove_crash_count();
 }
 
 void CreteReplay::cleanup_auto_mode() const

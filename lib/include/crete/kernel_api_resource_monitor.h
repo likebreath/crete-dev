@@ -24,4 +24,11 @@ struct CRETE_RM_INFO
     const char *m_call_site_module;
 };
 
+enum CRETE_RM_ALLOC_FAILURE_TYPE
+{
+    RM_FT_NORMAL = 1,   // Failure with non-zero int return, e.g. 'int pci_enable_device(alloc_ptr)'
+    RM_FT_NULL_PTR = 2, // Failure with NULL (zero) ptr return, e.g. 'void *__request_region(alloc_ptr)'
+    RM_FT_VOID = 3, // Never fail: return void, e.g. 'void add_timer()'
+};
+
 #endif /* LIB_INCLUDE_CRETE_KERNEL_API_RESOURCE_MONITOR_H_ */
