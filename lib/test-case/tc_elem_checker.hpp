@@ -19,7 +19,7 @@ static set<string> init_ptr_ret_funcs()
     set<string> list;
 
     // Note: should be consistent with list of functions in
-    // "guest/kernel-modules/kprobe_kernel_api"
+    // "guest/kernel-modules/kprobe_kernel_api" (35)
     list.insert("__alloc_ei_netdev");
     list.insert("__alloc_pages_nodemask");
     list.insert("__alloc_skb");
@@ -52,6 +52,9 @@ static set<string> init_ptr_ret_funcs()
     list.insert("__kmalloc_node");
     list.insert("kmalloc_order_trace");
     list.insert("kmem_cache_alloc");
+    list.insert("snd_hda_spdif_out_of_nid");
+    list.insert("snd_pcm_lib_default_mmap");
+    list.insert("__symbol_get");
 
     return list;
 };
