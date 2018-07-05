@@ -97,7 +97,7 @@ __CRETE_DEF_KPROBE(oops_enter);
 __CRETE_DEF_KPROBE(warn_slowpath_null);
 
 // -------------------------------------------
-// 1. Pointer return with failure on NULL (28)
+// 1. Pointer return with failure on NULL (32)
 // -------------------------------------------
 __CRETE_DEF_KPROBE_RET_CONCOLIC(__alloc_ei_netdev);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(__alloc_pages_nodemask); // invoked from a loop in e1000
@@ -126,6 +126,10 @@ __CRETE_DEF_KPROBE_RET_CONCOLIC(snd_info_create_card_entry);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pci_quirk_lookup);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(trace_event_buffer_reserve);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(vzalloc);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(__alloc_workqueue_key);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(__kmalloc_node);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(kmalloc_order_trace);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(kmem_cache_alloc);
 //__CRETE_DEF_KPROBE_RET_CONCOLIC(dev_get_drvdata); // False alarm: seems always return non-NULL value, based on e1000 maintainer
 
 // ------------------------------------------
@@ -195,6 +199,10 @@ __CRETE_DEF_KPROBE_RET_CONCOLIC(set_memory_wc);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(set_pages_array_wb);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(set_pages_array_wc);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(skb_pad);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(pci_enable_msi_block);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(pci_enable_msix);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(pci_request_selected_regions_exclusive);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(scsi_add_host_with_dma);
 //__CRETE_DEF_KPROBE_RET_CONCOLIC(dma_alloc_from_coherent); // 0/1
 //__CRETE_DEF_KPROBE_RET_CONCOLIC(register_netdev); // xxx False alarm: crashes, because of only flipping return
 
@@ -212,7 +220,7 @@ static inline int register_probes(void)
     __CRETE_REG_KPROBE(warn_slowpath_null);
 
     // -------------------------------------------
-    // 1. Pointer return with failure on NULL (28)
+    // 1. Pointer return with failure on NULL (32)
     // -------------------------------------------
     __CRETE_REG_KPROBE(__alloc_ei_netdev);
     __CRETE_REG_KPROBE(__alloc_pages_nodemask);
@@ -241,6 +249,10 @@ static inline int register_probes(void)
     __CRETE_REG_KPROBE(snd_pci_quirk_lookup);
     __CRETE_REG_KPROBE(trace_event_buffer_reserve);
     __CRETE_REG_KPROBE(vzalloc);
+    __CRETE_REG_KPROBE(__alloc_workqueue_key);
+    __CRETE_REG_KPROBE(__kmalloc_node);
+    __CRETE_REG_KPROBE(kmalloc_order_trace);
+    __CRETE_REG_KPROBE(kmem_cache_alloc);
 
     // ------------------------------------------
     // 2. Integer return with negative on failure
@@ -308,6 +320,10 @@ static inline int register_probes(void)
     __CRETE_REG_KPROBE(set_pages_array_wb);
     __CRETE_REG_KPROBE(set_pages_array_wc);
     __CRETE_REG_KPROBE(skb_pad);
+    __CRETE_REG_KPROBE(pci_enable_msi_block);
+    __CRETE_REG_KPROBE(pci_enable_msix);
+    __CRETE_REG_KPROBE(pci_request_selected_regions_exclusive);
+    __CRETE_REG_KPROBE(scsi_add_host_with_dma);
 
 //    __CRETE_REG_KPROBE();
 
@@ -320,7 +336,7 @@ static inline void unregister_probes(void)
     __CRETE_UNREG_KPROBE(warn_slowpath_null);
 
     // -------------------------------------------
-    // 1. Pointer return with failure on NULL (28)
+    // 1. Pointer return with failure on NULL (32)
     // -------------------------------------------
     __CRETE_UNREG_KPROBE(__alloc_ei_netdev);
     __CRETE_UNREG_KPROBE(__alloc_pages_nodemask);
@@ -349,6 +365,10 @@ static inline void unregister_probes(void)
     __CRETE_UNREG_KPROBE(snd_pci_quirk_lookup);
     __CRETE_UNREG_KPROBE(trace_event_buffer_reserve);
     __CRETE_UNREG_KPROBE(vzalloc);
+    __CRETE_UNREG_KPROBE(__alloc_workqueue_key);
+    __CRETE_UNREG_KPROBE(__kmalloc_node);
+    __CRETE_UNREG_KPROBE(kmalloc_order_trace);
+    __CRETE_UNREG_KPROBE(kmem_cache_alloc);
 
     // ------------------------------------------
     // 2. Integer return with negative on failure
@@ -416,6 +436,10 @@ static inline void unregister_probes(void)
     __CRETE_UNREG_KPROBE(set_pages_array_wb);
     __CRETE_UNREG_KPROBE(set_pages_array_wc);
     __CRETE_UNREG_KPROBE(skb_pad);
+    __CRETE_UNREG_KPROBE(pci_enable_msi_block);
+    __CRETE_UNREG_KPROBE(pci_enable_msix);
+    __CRETE_UNREG_KPROBE(pci_request_selected_regions_exclusive);
+    __CRETE_UNREG_KPROBE(scsi_add_host_with_dma);
 
 //    __CRETE_UNREG_KPROBE();
 }
