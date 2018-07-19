@@ -39,6 +39,7 @@ ExternalProject_Add(
 add_dependencies(llvm-translator-qemu-2.3 boost)
 
 add_custom_target(llvm-translator-qemu-2.3-remake ALL
-  COMMAND  make -j7
+  COMMAND  make -j7 &&
+  bash make_op_helper_bc.sh
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/llvm-translator-qemu-2.3
   DEPENDS llvm-translator-qemu-2.3)
