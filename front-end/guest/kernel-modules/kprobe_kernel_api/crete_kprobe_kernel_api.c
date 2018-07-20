@@ -259,6 +259,8 @@ __CRETE_DEF_KPROBE_RET_CONCOLIC(snd_pcm_suspend_all);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(snd_rawmidi_new);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(snd_rawmidi_receive);
 __CRETE_DEF_KPROBE_RET_CONCOLIC(snd_rawmidi_transmit);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(__mdiobus_register);
+__CRETE_DEF_KPROBE_RET_CONCOLIC(pci_enable_msix_range);
 
 //__CRETE_DEF_KPROBE_RET_CONCOLIC(dma_alloc_from_coherent); // 0/1
 //__CRETE_DEF_KPROBE_RET_CONCOLIC(register_netdev); // xxx False alarm: crashes, because of only flipping return
@@ -436,6 +438,8 @@ static inline int register_probes(void)
     __CRETE_REG_KPROBE(snd_rawmidi_new);
     __CRETE_REG_KPROBE(snd_rawmidi_receive);
     __CRETE_REG_KPROBE(snd_rawmidi_transmit);
+    __CRETE_REG_KPROBE(__mdiobus_register);
+    __CRETE_REG_KPROBE(pci_enable_msix_range);
 
 //    __CRETE_REG_KPROBE();
 
@@ -604,6 +608,8 @@ static inline void unregister_probes(void)
     __CRETE_UNREG_KPROBE(snd_rawmidi_new);
     __CRETE_UNREG_KPROBE(snd_rawmidi_receive);
     __CRETE_UNREG_KPROBE(snd_rawmidi_transmit);
+    __CRETE_UNREG_KPROBE(__mdiobus_register);
+    __CRETE_UNREG_KPROBE(pci_enable_msix_range);
 
 //    __CRETE_UNREG_KPROBE();
 }
