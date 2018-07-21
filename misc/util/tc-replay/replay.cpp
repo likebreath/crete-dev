@@ -622,7 +622,7 @@ void CreteReplay::collect_gcov_result()
 }
 
 static unsigned monitored_pid = 0;
-static unsigned monitored_timeout = 5;
+static unsigned monitored_timeout = 10;
 
 static inline void kernel_message(const char *kern_msg)
 {
