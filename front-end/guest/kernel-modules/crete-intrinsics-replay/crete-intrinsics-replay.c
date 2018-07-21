@@ -309,9 +309,37 @@ static struct file_operations crete_replay_fops = {
         .write = crete_replay_fops_write,
 };
 
+// xxx: stay consistent with 'crete_limit_same_concolics' in crete-tracer
+static char crete_limit_same_concolics = '3';
+// ret: 0, not exceed
+//      -1, exceed
+//      -2, invalid suffix
+static int check_name_limit(const char *current_suffix)
+{
+    size_t str_len = strlen(current_suffix);
+
+    if(str_len == 2 && current_suffix[0] == '_')
+    {
+        if(current_suffix[1] < crete_limit_same_concolics &&
+                current_suffix[1] >= '0')
+        {
+            return 0;
+        }
+
+        if(current_suffix[1] == crete_limit_same_concolics)
+        {
+            return -1;
+        }
+    }
+
+    printk(KERN_INFO "[CRETE ERROR] unexpected suffix index: %s, str_len = %zu \n", current_suffix, str_len);
+    return -2;
+}
+
 // @ret: 1, unique_name changed
 //       0, unchanged
 //      -1, error happened
+//      -2, exceed crete_limit_same_concolics
 static int get_unique_name(char *unique_name)
 {
     struct UniqueNames *tmp;
@@ -362,6 +390,12 @@ static int get_unique_name(char *unique_name)
                          strcpy(suffix, current_name + len_un);
                      }
                  }
+             }
+             if(check_name_limit(suffix))
+             {
+//                 printk(KERN_INFO "check_name_limit failed: current_name = %s, unique_name = %s, suffix = %s\n",
+//                         current_name, unique_name, suffix);
+                 return -2;
              }
 
 //             printk(KERN_INFO "[CRETE DBG] get_unique_name: suffix = %s (current = %s)\n", suffix, current_name);
@@ -481,10 +515,12 @@ void crete_make_concolic(void* addr, size_t size, const char* name)
     strcat(tmp_name, process_suffix);
 
     err = get_unique_name(tmp_name);
-    if(err == -1)
+    if(err)
     {
-        printk(KERN_INFO "[CRETE ERROR] get_unique_name() failed in crete_make_concolic() (addr = %p, size = %zu, name = %s)!\n",
-                addr, size, name);
+        if(err == -1) {
+            printk(KERN_INFO "[CRETE ERROR] get_unique_name() failed in crete_make_concolic() (addr = %p, size = %zu, name = %s)!\n",
+                    addr, size, name);
+        }
         return;
     }
 
