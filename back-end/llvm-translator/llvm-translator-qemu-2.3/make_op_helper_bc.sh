@@ -15,7 +15,7 @@ echo "GEN: bc_crete_ops.bc" & clang-3.4  \
     -o bc_crete_ops.bc
 
 
-echo "GEN: bc_crete_ops.bc" & clang-3.4  \
+echo "GEN: bc_crete_ops_lli.bc" & clang-3.4  \
     -c                                                 \
     -O2                                                \
     -emit-llvm                                         \
