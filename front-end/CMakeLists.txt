@@ -47,3 +47,5 @@ add_custom_target(qemu-2.3-remake ALL
   COMMAND  make -j7
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/qemu-2.3
   DEPENDS qemu-2.3)
+
+add_subdirectory(emu8051)

@@ -4,3 +4,6 @@
 [submodule "back-end/klee-1.4.0"]
 	path = back-end/klee-1.4.0
 	url = https://github.com/likebreath/klee.git
+[submodule "front-end/emu8051"]
+	path = front-end/emu8051
+	url = https://github.com/likebreath/crete-8051.git
