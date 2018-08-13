@@ -920,12 +920,12 @@ void crete_dbg_disable_stderr_stdout(void)
     fflush(stdout);
     fgetpos(stdout, &pos_stdout);
     fd_stdout = dup(fileno(stdout));
-    freopen("/dev/null", "w", stdout);
+    assert(freopen("/dev/null", "w", stdout));
 
     fflush(stderr);
     fgetpos(stderr, &pos_stderr);
     fd_stderr = dup(fileno(stderr));
-    freopen("/dev/null", "w", stderr);
+    assert(freopen("/dev/null", "w", stderr));
 
     disabled_stderr_stdout = true;
 }

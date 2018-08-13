@@ -299,9 +299,9 @@ void RuntimeEnv::addInitialHardwareState()
     memcpy(m_initial_VDState.data(), m_VDState_pre_interest, VDState_size);
 }
 
-static vector<CPUStateElement> x86_cpuState_compuate_side_effect(const CPUArchState *reference,
+static vector<CPUStateElement> x86_cpuState_compute_side_effect(const CPUArchState *reference,
         const CPUArchState *target);
-static vector<VDStateElement> compuate_side_effect_VDState(const uint8_t *reference,
+static vector<VDStateElement> compute_side_effect_VDState(const uint8_t *reference,
         const uint8_t *target);
 void RuntimeEnv::addHardwareStateSyncTable()
 {
@@ -314,7 +314,7 @@ void RuntimeEnv::addHardwareStateSyncTable()
         const CPUArchState *pre_insterest = (const CPUArchState *) m_cpuState_pre_interest;
 
         m_cpuStateSyncTables.push_back(make_pair(true,
-                x86_cpuState_compuate_side_effect(post_interest, pre_insterest)));
+                x86_cpuState_compute_side_effect(post_interest, pre_insterest)));
     }
 
     // VD State
@@ -323,7 +323,7 @@ void RuntimeEnv::addHardwareStateSyncTable()
         const uint8_t *pre_interest = (const uint8_t *) m_VDState_pre_interest;
 
         m_VDStateSyncTables.push_back(make_pair(true,
-                compuate_side_effect_VDState(post_interest, pre_interest)));
+                compute_side_effect_VDState(post_interest, pre_interest)));
     }
 
 
@@ -401,7 +401,7 @@ void RuntimeEnv::dump_vd_dma_info(uint64_t guest_phy_addr, uint64_t host_virt_ad
         uint64_t page_guest_virt_addr = it->second;
         uint64_t guest_virt_addr = page_guest_virt_addr + page_offset;
 
-        // Capture dma information, mainly the map between guest virtual address an guest physical address
+        // Capture dma information, mainly the map between guest virtual address and guest physical address
         vd_ops_info.add_dma_ops_info(guest_virt_addr, guest_phy_addr, len, is_write);
 
         // For dma read (ram -> device), capture ram value as read operations
@@ -863,7 +863,7 @@ void RuntimeEnv::set_dbgCPUStatePostInterest(const void *src)
 
 void RuntimeEnv::check_dbgCPUStatePostInterest(const void *src)
 {
-    vector<CPUStateElement> differs = x86_cpuState_compuate_side_effect((const CPUArchState *)m_dbg_cpuState_post_interest,
+    vector<CPUStateElement> differs = x86_cpuState_compute_side_effect((const CPUArchState *)m_dbg_cpuState_post_interest,
             (const CPUArchState *)src);
     if(differs.empty())
     {
@@ -2635,7 +2635,7 @@ int crete_flags_is_true(struct CreteFlags *cf)
 // CPU_COMMON and all below           Irrelevant
 
 // Compare two cpu states, return the different elements of target cpu state
-static vector<CPUStateElement> x86_cpuState_compuate_side_effect(const CPUArchState *reference,
+static vector<CPUStateElement> x86_cpuState_compute_side_effect(const CPUArchState *reference,
         const CPUArchState *target) {
     vector<CPUStateElement> ret;
     ret.clear();
@@ -3107,7 +3107,8 @@ static bool manual_code_selection_post_exec()
 // QEMUTimer *autoneg_timer,         pointer
 // QEMUTimer *mit_timer,             pointer
 
-static vector<VDStateElement> compuate_side_effect_E1000State(const uint8_t *reference,
+__attribute__((unused))
+static vector<VDStateElement> compute_side_effect_E1000State(const uint8_t *reference,
         const uint8_t *target) {
     vector<VDStateElement> ret;
     ret.clear();
@@ -3226,7 +3227,8 @@ static vector<VDStateElement> compuate_side_effect_E1000State(const uint8_t *ref
 // NICState *nic,                    pointer
 // eeprom_t *eeprom,                 pointer
 // VMStateDescription *vmstate,      pointer
-static vector<VDStateElement> compuate_side_effect_EEPRO100State(const uint8_t *reference,
+__attribute__((unused))
+static vector<VDStateElement> compute_side_effect_EEPRO100State(const uint8_t *reference,
         const uint8_t *target) {
     vector<VDStateElement> ret;
     ret.clear();
@@ -3310,7 +3312,8 @@ static vector<VDStateElement> compuate_side_effect_EEPRO100State(const uint8_t *
 // +--------------------------------+----------------------------+
 // NICState *nic,                    pointer
 // qemu_irq irq;                     pointer
-static vector<VDStateElement> compuate_side_effect_NE2000State(const uint8_t *reference,
+__attribute__((unused))
+static vector<VDStateElement> compute_side_effect_NE2000State(const uint8_t *reference,
         const uint8_t *target) {
     vector<VDStateElement> ret;
     ret.clear();
@@ -3357,7 +3360,8 @@ static vector<VDStateElement> compuate_side_effect_NE2000State(const uint8_t *re
 // void (*phys_mem_read)();
 // void (*phys_mem_write)();
 // void *dma_opaque;
-static vector<VDStateElement> compuate_side_effect_PCNETState(const uint8_t *reference,
+__attribute__((unused))
+static vector<VDStateElement> compute_side_effect_PCNETState(const uint8_t *reference,
         const uint8_t *target) {
     vector<VDStateElement> ret;
     ret.clear();
@@ -3400,7 +3404,8 @@ static vector<VDStateElement> compuate_side_effect_PCNETState(const uint8_t *ref
 // NICState *nic;                     Pointer
 // *cplus_txbuffer;
 // *timer
-static vector<VDStateElement> compuate_side_effect_RTL8139State(const uint8_t *reference,
+__attribute__((unused))
+static vector<VDStateElement> compute_side_effect_RTL8139State(const uint8_t *reference,
         const uint8_t *target) {
     vector<VDStateElement> ret;
     ret.clear();
@@ -3489,18 +3494,18 @@ static vector<VDStateElement> compuate_side_effect_RTL8139State(const uint8_t *r
 }
 
 // VDState
-static vector<VDStateElement> compuate_side_effect_VDState(const uint8_t *reference,
+static vector<VDStateElement> compute_side_effect_VDState(const uint8_t *reference,
         const uint8_t *target) {
 #if defined(CRETE_VD_E1000)
-    return compuate_side_effect_E1000State(reference, target);
+    return compute_side_effect_E1000State(reference, target);
 #elif defined(CRETE_VD_EEPRO100)
-    return compuate_side_effect_EEPRO100State(reference, target);
+    return compute_side_effect_EEPRO100State(reference, target);
 #elif defined(CRETE_VD_NE2000)
-    return compuate_side_effect_NE2000State(reference, target);
+    return compute_side_effect_NE2000State(reference, target);
 #elif defined(CRETE_VD_PCNET)
-    return compuate_side_effect_PCNETState(reference, target);
+    return compute_side_effect_PCNETState(reference, target);
 #elif defined(CRETE_VD_RTL8139)
-    return compuate_side_effect_RTL8139State(reference, target);
+    return compute_side_effect_RTL8139State(reference, target);
 #else
 #error NO TARGET VIRTUAL DEVICE IS SPECIFIED: CRETE_VD_E1000 AND CRETE_VD_EEPRO100 ARE SUPPORTED
 #endif
