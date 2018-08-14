@@ -51,6 +51,7 @@
 
 #if defined(CRETE_VD_EEPRO100)
 #include "runtime-dump/crete-debug.h"
+#include "runtime-dump/crete-fw-exec.h"
 
 void *crete_vd_instance = NULL;
 
@@ -1592,6 +1593,9 @@ static uint64_t eepro100_read(void *opaque, hwaddr addr,
 {
 #if defined(CRETE_VD_EEPRO100)
     assert(crete_vd_instance == opaque);
+
+    uint64_t fw_ret = crete_fw_trans_exec(crete_get_fw_emu_state(), addr);
+    fprintf(stderr, "fw_trans_exec(): input = %lu, fw_ret = %lu\n", addr, fw_ret);
 #endif
 
     EEPRO100State *s = opaque;
@@ -1609,6 +1613,9 @@ static void eepro100_write(void *opaque, hwaddr addr,
 {
 #if defined(CRETE_VD_EEPRO100)
     assert(crete_vd_instance == opaque);
+
+    uint64_t fw_ret = crete_fw_trans_exec(crete_get_fw_emu_state(), addr);
+    fprintf(stderr, "fw_trans_exec(): input = %lu, fw_ret = %lu\n", addr, fw_ret);
 #endif
 
     EEPRO100State *s = opaque;

@@ -110,6 +110,8 @@ obj-y += runtime-dump/tci_analyzer.o
 obj-y += runtime-dump/crete_tci.o
 obj-y += runtime-dump/crete-debug.o
 
+LIBS += -lcrete-emu8051
+obj-y += runtime-dump/crete-fw-exec.o
 ###
 
 obj-$(CONFIG_LIBDECNUMBER) += libdecnumber/decContext.o

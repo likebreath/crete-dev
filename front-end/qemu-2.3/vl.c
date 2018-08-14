@@ -2729,6 +2729,7 @@ static void set_memory_options(uint64_t *ram_slots, ram_addr_t *maxram_size)
 
 #if defined(CRETE_CONFIG) || 1
 #include "runtime-dump/crete-debug.h"
+#include "runtime-dump/crete-fw-exec.h"
 #endif
 
 int main(int argc, char **argv, char **envp)
@@ -2741,6 +2742,13 @@ int main(int argc, char **argv, char **envp)
     CRETE_DBG_GEN(
     crete_dbg_disable_stderr_stdout();
     );
+
+#if defined(CRETE_CONFIG) || 1
+    if(crete_launch_fw())
+    {
+        return -1;
+    }
+#endif
 
     int i;
     int snapshot, linux_boot;
@@ -4378,6 +4386,10 @@ int main(int argc, char **argv, char **envp)
     res_free();
 #ifdef CONFIG_TPM
     tpm_cleanup();
+#endif
+
+#if defined(CRETE_CONFIG) || 1
+    crete_clear_fw();
 #endif
 
     return 0;

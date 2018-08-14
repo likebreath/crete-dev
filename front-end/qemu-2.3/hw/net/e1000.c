@@ -39,6 +39,7 @@
 
 #if defined(CRETE_VD_E1000)
 #include "runtime-dump/crete-debug.h"
+#include "runtime-dump/crete-fw-exec.h"
 
 void *crete_vd_instance = NULL;
 
@@ -1262,6 +1263,9 @@ e1000_mmio_write(void *opaque, hwaddr addr, uint64_t val,
     );
 
     assert(crete_vd_instance == opaque);
+
+    uint64_t fw_ret = crete_fw_trans_exec(crete_get_fw_emu_state(), addr);
+    fprintf(stderr, "fw_trans_exec(): input = %lu, fw_ret = %lu\n", addr, fw_ret);
 #endif
 
     E1000State *s = opaque;

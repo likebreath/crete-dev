@@ -31,7 +31,7 @@ ExternalProject_Add(
         ./configure
         --enable-tcg-interpreter
         --target-list=i386-softmmu,x86_64-softmmu
-        "--extra-cflags=-I${CMAKE_SOURCE_DIR}/lib/include -I${CMAKE_BINARY_DIR}/lib/boost/boost-prefix/src/boost_1_59_0 -D${QEMU_VD_FLAG}"
+        "--extra-cflags=-I${CMAKE_SOURCE_DIR}/lib/include -I${CMAKE_SOURCE_DIR}/front-end/emu8051 -I${CMAKE_BINARY_DIR}/lib/boost/boost-prefix/src/boost_1_59_0 -D${QEMU_VD_FLAG}"
         "--extra-ldflags=-L${CMAKE_BINARY_DIR}/bin -L${CMAKE_BINARY_DIR}/bin/boost"
 
 	BUILD_COMMAND make -j7
@@ -41,7 +41,7 @@ ExternalProject_Add(
         ln -sf ${CMAKE_CURRENT_SOURCE_DIR}/qemu-2.3/x86_64-softmmu/crete-qemu-2.3-system-x86_64 ${CMAKE_BINARY_DIR}/bin/crete-qemu-2.3-system-x86_64
 	)
 
-add_dependencies(qemu-2.3 crete_test_case boost)
+add_dependencies(qemu-2.3 crete_test_case boost crete-emu8051)
 
 add_custom_target(qemu-2.3-remake ALL
   COMMAND  make -j7
