@@ -108,6 +108,7 @@ int  crete_flags_is_true(struct CreteFlags *cf);
 /***********************************/
 /* External interface for C++ code */
 #include "tcg-llvm-offline/tcg-llvm-offline.h"
+#include "crete-fw-exec.h"
 
 #include <crete/trace_tag.h>
 #include <crete/guest_data_post_exec.hpp>
@@ -318,6 +319,11 @@ private:
     //virtual device trace
     creteVDTables_ty m_vd_tables;
 
+    // Firmware
+    RuntimeState8051 m_rt_state_8051;
+    struct em8051 m_emu8051_pre_insterest;
+    struct em8051 m_emu8051_post_insterest;
+
     // For debugging
     vector<uint64_t> m_tbExecSequPC;
     // The interrupts and their state information collected during the execution of the program
@@ -468,6 +474,9 @@ private:
     void writeGuestDataPostExec();
 
     void writeVDTables();
+
+    // Firmware emu
+    void writeRTState8051();
 };
 
 class CreteFlags{

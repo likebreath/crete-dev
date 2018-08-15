@@ -297,6 +297,10 @@ void RuntimeEnv::addInitialHardwareState()
     assert(m_initial_VDState.empty());
     m_initial_VDState.resize(VDState_size);
     memcpy(m_initial_VDState.data(), m_VDState_pre_interest, VDState_size);
+
+    //Firmware Emu
+    m_rt_state_8051.capture_init_state(&m_emu8051_pre_insterest);
+
 }
 
 static vector<CPUStateElement> x86_cpuState_compute_side_effect(const CPUArchState *reference,
@@ -324,6 +328,11 @@ void RuntimeEnv::addHardwareStateSyncTable()
 
         m_VDStateSyncTables.push_back(make_pair(true,
                 compute_side_effect_VDState(post_interest, pre_interest)));
+    }
+
+    // VD State
+    {
+        m_rt_state_8051.add_sync_table_and_end_pc(m_emu8051_post_insterest, m_emu8051_pre_insterest);
     }
 
 
@@ -639,6 +648,7 @@ void RuntimeEnv::writeRtEnvToFile()
         debug_writeMemoSyncTables();
 #endif
         writeVDTables();
+        writeRTState8051();
 
         // need-not-streamed
         writeConcolics();
@@ -1061,6 +1071,8 @@ void RuntimeEnv::setHardwareStatePostInterest(const void *cpustate, const void *
 
     assert(VDState);
     memcpy(m_VDState_post_insterest, VDState, VDState_size);
+
+    memcpy(&m_emu8051_post_insterest, crete_get_fw_emu_state(), sizeof(struct em8051));
 }
 
 void RuntimeEnv::setFlagHardwareStatePostInterest()
@@ -1080,6 +1092,8 @@ void RuntimeEnv::setHardwareStatePreInterest(const void *cpustate, const void *V
 
     assert(VDState);
     memcpy(m_VDState_pre_interest, VDState, VDState_size);
+
+    memcpy(&m_emu8051_pre_insterest, crete_get_fw_emu_state(), sizeof(struct em8051));
 }
 
 void RuntimeEnv::resetFlagHardwareStatePreInterest()
@@ -1931,7 +1945,7 @@ void RuntimeEnv::writeVDTables()
     ss << "dump_vd_tables.bin";
     ofstream o_sm(getOutputFilename(ss.str()).c_str(), ios_base::binary);
 
-    assert(o_sm.good() && "Create file failed: dump_sync_cpu_states.bin\n");
+    assert(o_sm.good() && "Create file failed: dump_vd_tables.bin\n");
 
     try {
         boost::archive::binary_oarchive oa(o_sm);
@@ -1942,6 +1956,14 @@ void RuntimeEnv::writeVDTables()
     }
 }
 
+void RuntimeEnv::writeRTState8051()
+{
+    ofstream ofs(getOutputFilename("dump_rt_state_8051.c").c_str(), ios_base::binary);
+
+    assert(ofs.good() && "Create file failed: dump_rt_state_8051.c\n");
+
+    m_rt_state_8051.dump_to_file(ofs);
+}
 
 CreteFlags::CreteFlags()
 : m_cpuState(NULL), m_tb(NULL),
