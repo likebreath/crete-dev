@@ -332,9 +332,9 @@ void RuntimeEnv::addHardwareStateSyncTable()
 
     // VD State
     {
-        m_rt_state_8051.add_sync_table_and_end_pc(m_emu8051_post_insterest, m_emu8051_pre_insterest);
+        m_rt_state_8051.add_sync_table(m_emu8051_post_insterest, m_emu8051_pre_insterest,
+                crete_get_fw_trans_count());
     }
-
 
     // Invalid m_HWState_post_insterest, after HWState side-effect is computed
     m_flag_HWState_post_interest = false;
@@ -1958,11 +1958,7 @@ void RuntimeEnv::writeVDTables()
 
 void RuntimeEnv::writeRTState8051()
 {
-    ofstream ofs(getOutputFilename("dump_rt_state_8051.c").c_str(), ios_base::binary);
-
-    assert(ofs.good() && "Create file failed: dump_rt_state_8051.c\n");
-
-    m_rt_state_8051.dump_to_file(ofs);
+    m_rt_state_8051.dump_to_file(getOutputFilename("dump_rt_state_8051.c").c_str());
 }
 
 CreteFlags::CreteFlags()
@@ -2120,6 +2116,7 @@ void crete_pre_cpu_tb_exec(void *qemuCpuState, TranslationBlock *tb)
         runtime_env->setHardwareStatePreInterest((void *)env, crete_vd_instance);
 
         vd_ops_info.clear();
+        crete_reset_fw_trans_count();
 
         ++rt_dump_tb_count;
     } else {

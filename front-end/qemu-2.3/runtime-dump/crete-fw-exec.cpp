@@ -12,6 +12,7 @@
 using namespace std;
 
 static struct em8051 *fw_emu = 0;
+static uint32_t fw_trans_count = 0;
 
 int crete_launch_fw()
 {
@@ -31,6 +32,8 @@ int crete_launch_fw()
         return -1;
     }
 
+    fw_trans_count = 0;
+
     return 0;
 }
 
@@ -46,5 +49,16 @@ struct em8051 *crete_get_fw_emu_state()
 
 uint64_t crete_fw_trans_exec(struct em8051 *emu, uint64_t val)
 {
+    ++fw_trans_count;
     return emu8051_trans_exec(emu, val);
+}
+
+uint32_t crete_get_fw_trans_count()
+{
+    return fw_trans_count;
+}
+
+void crete_reset_fw_trans_count()
+{
+    fw_trans_count = 0;
 }

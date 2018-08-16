@@ -23,6 +23,8 @@ void crete_clear_fw(void);
 // For crete tracing and VD
 struct em8051 *crete_get_fw_emu_state(void);
 uint64_t crete_fw_trans_exec(struct em8051 *emu, uint64_t val);
+uint32_t crete_get_fw_trans_count(void);
+void crete_reset_fw_trans_count(void);
 
 #ifdef __cplusplus
 }

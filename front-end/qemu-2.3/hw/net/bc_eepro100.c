@@ -51,6 +51,8 @@
 
 #include "runtime-dump/bc_crete_dma.h"
 
+uint64_t crete_fw_trans_exec(uint64_t val);
+
 /* QEMU sends frames smaller than 60 bytes to ethernet nics.
  * Such frames are rejected by real nics and their emulations.
  * To avoid this behaviour, other nic emulations pad received
@@ -1477,6 +1479,8 @@ static void eepro100_write4(EEPRO100State * s, uint32_t addr, uint32_t val)
 static uint64_t eepro100_read(void *opaque, hwaddr addr,
                               unsigned size)
 {
+    uint64_t fw_ret = crete_fw_trans_exec(addr);
+
     EEPRO100State *s = opaque;
 
     switch (size) {
@@ -1490,6 +1494,8 @@ static uint64_t eepro100_read(void *opaque, hwaddr addr,
 static void eepro100_write(void *opaque, hwaddr addr,
                            uint64_t data, unsigned size)
 {
+    uint64_t fw_ret = crete_fw_trans_exec(addr);
+
     EEPRO100State *s = opaque;
 
     switch (size) {
