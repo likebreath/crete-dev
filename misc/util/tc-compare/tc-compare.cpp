@@ -1,5 +1,7 @@
 #include "tc-compare.hpp"
 
+#include <crete/run_config.h>
+
 #include <boost/program_options.hpp>
 #include <boost/unordered_map.hpp>
 #include <boost/lexical_cast.hpp>
@@ -41,6 +43,7 @@ po::options_description CreteTcCompare::make_options()
         ("patch,p", po::value<fs::path>(), "patch mode")
         ("batch-patch,b", po::value<fs::path>(), "input directory for patching test case in batch-patch mode")
         ("display,d", po::value<fs::path>(), "display the content of a test case\n")
+        ("config-file,c", po::value<fs::path>(), "Verify whether input crete config file is valid, and output a serialized version\n")
         ;
 
     return desc;
@@ -130,6 +133,25 @@ void CreteTcCompare::process_options(int argc, char* argv[])
         }
 
         m_display = p;
+    } else if (m_var_map.count("config-file")) {
+        fs::path p = m_var_map["config-file"].as<fs::path>();
+
+        if(!fs::is_regular(p))
+        {
+            BOOST_THROW_EXCEPTION(Exception() << err::file_missing(p.string()));
+        }
+        config::RunConfiguration run_config = config::RunConfiguration(p);
+
+        std::ofstream ofs((p.string() + ".serialized").c_str());
+
+        if(!ofs.good())
+        {
+            BOOST_THROW_EXCEPTION(Exception() << err::file_open_failed(p.string() + ".serialized"));
+        }
+
+        boost::archive::text_oarchive oa(ofs);
+        oa << run_config;
+        ofs.close();
     } else {
         BOOST_THROW_EXCEPTION(std::runtime_error("Crete-tc-compare requires reference tc and target tc"));
     }
