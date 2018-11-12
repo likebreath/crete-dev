@@ -285,7 +285,7 @@ private:
     log::NodeError error_log_;
 
     std::chrono::time_point<std::chrono::system_clock> test_start_time_;
-    uint64_t test_timeout_duration_{600}; //Note: xxx this timeout should be longer than the timeout set in crete-run
+    uint64_t test_timeout_duration_{3600}; //Note: xxx this timeout should be longer than the timeout set in crete-run
     bool is_test_timeout_{false};
 
     std::shared_ptr<GuestDataPostExec> guest_data_post_exec_{std::make_shared<GuestDataPostExec>()};
