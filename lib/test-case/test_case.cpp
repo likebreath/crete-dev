@@ -154,10 +154,11 @@ namespace crete
         // For semi-explored case
         if(negate_tt_index == (ret.m_explored_nodes.size() - 1))
         {
+            assert(!ret.m_semi_explored_node.empty());
+
             vector<bool>& last_node_br_taken = ret.m_explored_nodes.back().m_br_taken;
             const vector<bool>& semi_explored_br_taken = ret.m_semi_explored_node.front().m_br_taken;
 
-            assert(!ret.m_semi_explored_node.empty());
             assert(negate_tt_node_br_index >= last_node_br_taken.size());
             assert(negate_tt_node_br_index < (last_node_br_taken.size() + semi_explored_br_taken.size()));
 
@@ -189,6 +190,64 @@ namespace crete
         return ret;
     }
 
+    uint64_t get_br_tb_pc(const TestCase& tc)
+    {
+        return tc.m_br_tb_pc;
+    }
+
+    uint64_t TestCase::calculate_br_tb_pc_for_patch(const TestCasePatchTraceTag_ty &tcp_tt) const
+    {
+        assert(!m_patch);
+
+        CreteTraceTagNode last_tt_node;
+
+        uint32_t tt_index = tcp_tt.first;
+        uint32_t tt_node_br_index = tcp_tt.second;
+
+        // For semi-explored case
+        if(tt_index == (m_explored_nodes.size()-1))
+        {
+            assert(!m_semi_explored_node.empty());
+            last_tt_node = m_explored_nodes.back();
+            vector<bool>& last_node_br_taken = last_tt_node.m_br_taken;
+            const vector<bool>& semi_explored_br_taken = m_semi_explored_node.front().m_br_taken;
+
+            assert(tt_node_br_index >= last_node_br_taken.size());
+            assert(tt_node_br_index < (last_node_br_taken.size() + semi_explored_br_taken.size()));
+
+            last_node_br_taken.insert(last_node_br_taken.end(),
+                    semi_explored_br_taken.begin(),
+                    semi_explored_br_taken.begin() +
+                    (tt_node_br_index - last_node_br_taken.size()) + 1);
+        } else {
+            assert(tt_index >=  m_explored_nodes.size());
+            assert(tt_index < (m_explored_nodes.size() + m_new_nodes.size()) );
+
+            last_tt_node = m_new_nodes[tt_index - m_explored_nodes.size()];
+            vector<bool>& last_node_br_taken = last_tt_node.m_br_taken;
+            assert(tt_node_br_index < last_node_br_taken.size());
+            last_node_br_taken.resize(tt_node_br_index + 1);
+        }
+
+        uint64_t tb_pc = last_tt_node.m_tb_pc;
+        uint64_t br_index = last_tt_node.m_br_taken.size() - 1;
+        assert(((tb_pc >> 56) & 0xFF) == 0 && "[CRETE ERROR] Assumption broken: top byte of TB-PC is non-zero.\n");
+        assert(br_index < 4 && "[CRETE ERROR] Assumption broken: more than 4 branches from a single TB.\n");
+        assert(br_index == tcp_tt.second);
+        uint64_t ret = (tb_pc << 8) + br_index;
+
+#if 0
+        fprintf(stderr, "[CRETE DBG] get_tt_node_for_tcp(): pc = %p, last_opc = %d, "
+                "tb_count = %lu, br_taken.size() = %lu\n",
+                (void *)last_tt_node.m_tb_pc, last_tt_node.m_last_opc,
+                last_tt_node.m_tb_count, last_tt_node.m_br_taken.size());
+
+        fprintf(stderr, "[CRETE DBG] get_br_tb_pc_from_patch(): ret = %p\n", (void *)ret);
+#endif
+
+        return ret;
+    }
+
     void TestCaseElement::print() const
     {
         for(uint64_t i = 0; i < name.size(); ++i)
@@ -208,20 +267,24 @@ namespace crete
         priority_(0),
         m_patch(false),
         m_issue_index(0),
-        m_base_tc_issue_index(0)
+        m_base_tc_issue_index(0),
+        m_br_tb_pc(0)
     {
     }
 
     TestCase::TestCase(const crete::TestCasePatchTraceTag_ty& tcp_tt,
             const std::vector<crete::TestCasePatchElement_ty>& tcp_elems,
-            const TestCaseIssueIndex& base_tc_issue_index)
+            const TestCaseIssueIndex& base_tc_issue_index,
+            const uint64_t br_tb_pc)
     :priority_(0),
      m_patch(true),
      m_tcp_tt(tcp_tt),
      m_tcp_elems(tcp_elems),
      m_issue_index(0),
-     m_base_tc_issue_index(base_tc_issue_index)
-    {}
+     m_base_tc_issue_index(base_tc_issue_index),
+     m_br_tb_pc(br_tb_pc)
+    {
+    }
 
     TestCase::TestCase(const TestCase& tc)
     :priority_(tc.priority_),
@@ -233,9 +296,9 @@ namespace crete
      elems_(tc.elems_),
      m_explored_nodes(tc.m_explored_nodes),
      m_semi_explored_node(tc.m_semi_explored_node),
-     m_new_nodes(tc.m_new_nodes)
+     m_new_nodes(tc.m_new_nodes),
+     m_br_tb_pc(tc.m_br_tb_pc)
     {}
-
 
     void TestCase::write(ostream& os) const
     {

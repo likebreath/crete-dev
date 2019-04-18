@@ -81,7 +81,8 @@ namespace crete
         TestCase(const TestCase& tc);
         TestCase(const crete::TestCasePatchTraceTag_ty& tcp_tt,
                  const std::vector<crete::TestCasePatchElement_ty>& tcp_elems,
-                 const TestCaseIssueIndex& base_tc_issue_index);
+                 const TestCaseIssueIndex& base_tc_issue_index,
+                 const uint64_t br_tb_pc);
 
         void add_element(const TestCaseElement& e) { elems_.push_back(e); }
 
@@ -106,11 +107,15 @@ namespace crete
         TestCaseIssueIndex get_issue_index() const;
         void set_issue_index(TestCaseIssueIndex index);
 
+        uint64_t calculate_br_tb_pc_for_patch(const TestCasePatchTraceTag_ty &tcp_tt) const;
+
         void print() const;
 
         friend bool check_tc_elems_meaningfulness(TestCase &tc);
         friend TestCase generate_complete_tc_from_patch(const TestCase& patch, const TestCase& base);
         friend std::ostream& operator<<(std::ostream& os, const TestCase& tc);
+
+        friend uint64_t get_br_tb_pc(const TestCase& tc);
 
         template <typename Archive>
         void serialize(Archive& ar, const unsigned int version)
@@ -130,6 +135,8 @@ namespace crete
             ar & m_explored_nodes;
             ar & m_semi_explored_node;
             ar & m_new_nodes;
+
+            ar & m_br_tb_pc;
         }
 
         bool operator==(TestCase const& other) const
@@ -154,6 +161,8 @@ namespace crete
         creteTraceTag_ty m_explored_nodes;
         creteTraceTag_ty m_semi_explored_node;
         creteTraceTag_ty m_new_nodes;
+
+        uint64_t m_br_tb_pc;  // The PC of the TB that produces the current test case.
     };
 
     std::ostream& operator<<(std::ostream& os, const TestCaseElement& elem);
