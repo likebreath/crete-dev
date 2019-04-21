@@ -119,6 +119,9 @@ namespace crete
         TestCase ret(base);
         ret.m_issue_index = patch.m_issue_index;
         ret.m_base_tc_issue_index = patch.m_base_tc_issue_index;
+        ret.m_br_tb_pc = patch.m_br_tb_pc;
+        ret.m_covNew_dist = patch.m_covNew_dist;
+
         map<string, uint64_t> elem_name_to_index;
         for(uint64_t i = 0; i < ret.elems_.size(); ++i)
         {
@@ -190,9 +193,9 @@ namespace crete
         return ret;
     }
 
-    uint64_t get_br_tb_pc(const TestCase& tc)
+    uint64_t TestCase::get_br_tb_pc() const
     {
-        return tc.m_br_tb_pc;
+        return m_br_tb_pc;
     }
 
     uint64_t TestCase::calculate_br_tb_pc_for_patch(const TestCasePatchTraceTag_ty &tcp_tt) const
@@ -248,6 +251,19 @@ namespace crete
         return ret;
     }
 
+    int TestCase::get_covNew_dist() const
+    {
+        assert(m_covNew_dist >= 0);
+        return m_covNew_dist;
+    }
+
+    void TestCase::set_covNew_dist(int covNew_dist) const
+    {
+        assert(covNew_dist >= 0);
+        assert(m_covNew_dist >= 0);
+        m_covNew_dist = covNew_dist;
+    }
+
     void TestCaseElement::print() const
     {
         for(uint64_t i = 0; i < name.size(); ++i)
@@ -268,21 +284,24 @@ namespace crete
         m_patch(false),
         m_issue_index(0),
         m_base_tc_issue_index(0),
-        m_br_tb_pc(0)
+        m_br_tb_pc(0),
+        m_covNew_dist(0)
     {
     }
 
     TestCase::TestCase(const crete::TestCasePatchTraceTag_ty& tcp_tt,
             const std::vector<crete::TestCasePatchElement_ty>& tcp_elems,
             const TestCaseIssueIndex& base_tc_issue_index,
-            const uint64_t br_tb_pc)
+            const uint64_t br_tb_pc,
+            const int covNew_dist)
     :priority_(0),
      m_patch(true),
      m_tcp_tt(tcp_tt),
      m_tcp_elems(tcp_elems),
      m_issue_index(0),
      m_base_tc_issue_index(base_tc_issue_index),
-     m_br_tb_pc(br_tb_pc)
+     m_br_tb_pc(br_tb_pc),
+     m_covNew_dist(covNew_dist)
     {
     }
 
@@ -297,7 +316,8 @@ namespace crete
      m_explored_nodes(tc.m_explored_nodes),
      m_semi_explored_node(tc.m_semi_explored_node),
      m_new_nodes(tc.m_new_nodes),
-     m_br_tb_pc(tc.m_br_tb_pc)
+     m_br_tb_pc(tc.m_br_tb_pc),
+     m_covNew_dist(tc.m_covNew_dist)
     {}
 
     void TestCase::write(ostream& os) const

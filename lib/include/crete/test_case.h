@@ -82,7 +82,8 @@ namespace crete
         TestCase(const crete::TestCasePatchTraceTag_ty& tcp_tt,
                  const std::vector<crete::TestCasePatchElement_ty>& tcp_elems,
                  const TestCaseIssueIndex& base_tc_issue_index,
-                 const uint64_t br_tb_pc);
+                 const uint64_t br_tb_pc,
+                 const int covNew_dist);
 
         void add_element(const TestCaseElement& e) { elems_.push_back(e); }
 
@@ -107,15 +108,17 @@ namespace crete
         TestCaseIssueIndex get_issue_index() const;
         void set_issue_index(TestCaseIssueIndex index);
 
+        uint64_t get_br_tb_pc() const;
         uint64_t calculate_br_tb_pc_for_patch(const TestCasePatchTraceTag_ty &tcp_tt) const;
+        int get_covNew_dist() const;
+        void set_covNew_dist(int covNew_dist) const;
+        void clear_tt_explored_nodes() const {m_explored_nodes.clear();}
 
         void print() const;
 
         friend bool check_tc_elems_meaningfulness(TestCase &tc);
         friend TestCase generate_complete_tc_from_patch(const TestCase& patch, const TestCase& base);
         friend std::ostream& operator<<(std::ostream& os, const TestCase& tc);
-
-        friend uint64_t get_br_tb_pc(const TestCase& tc);
 
         template <typename Archive>
         void serialize(Archive& ar, const unsigned int version)
@@ -137,6 +140,7 @@ namespace crete
             ar & m_new_nodes;
 
             ar & m_br_tb_pc;
+            ar & m_covNew_dist;
         }
 
         bool operator==(TestCase const& other) const
@@ -158,11 +162,12 @@ namespace crete
         vector<TestCasePatchElement_ty> m_tcp_elems;
 
         TestCaseElements elems_;
-        creteTraceTag_ty m_explored_nodes;
+        mutable creteTraceTag_ty m_explored_nodes;
         creteTraceTag_ty m_semi_explored_node;
         creteTraceTag_ty m_new_nodes;
 
         uint64_t m_br_tb_pc;  // The PC of the TB that produces the current test case.
+        mutable int m_covNew_dist;
     };
 
     std::ostream& operator<<(std::ostream& os, const TestCaseElement& elem);

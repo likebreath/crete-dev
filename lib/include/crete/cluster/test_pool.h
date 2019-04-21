@@ -22,15 +22,7 @@ namespace crete
 namespace cluster
 {
 
-struct TestCaseTreeNode
-{
-    uint64_t m_tc_index;
-    std::vector<uint64_t> m_childern_tc_indexes;
-
-    TestCaseTreeNode() {m_tc_index = -1;}
-};
-
-enum TestSchedStrat {FIFO, BFS};
+enum TestSchedStrat {FIFO, BFS, COV_NEW_BFS};
 
 class TestPriority
 {
@@ -59,6 +51,9 @@ private:
     boost::unordered_set<UniqueTestIdentifier> issued_tc_hash_pool_;
     BaseTestCache_ty base_tc_cache_;
 
+    // <br_tb_pc, count>
+    boost::unordered_map<uint64_t, uint64_t> m_covered_br_tb_pc;
+
     // debug
     uint64_t m_duplicated_tc_count;
     uint64_t m_meaningless_tc_count;
@@ -80,6 +75,8 @@ public:
 
 private:
     auto insert_internal(const TestCase& tc) -> bool;
+
+    auto set_tc_covNew_dist(const TestCase& tc) -> void;
 
     auto insert_base_tc(const TestCase& tc) -> BaseTestCache_ty::const_iterator;
     auto get_base_tc(const TestCase& tc) -> BaseTestCache_ty::const_iterator;

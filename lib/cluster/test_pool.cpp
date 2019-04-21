@@ -18,16 +18,41 @@ namespace cluster
 
 const static uint64_t BASE_TEST_CACHE_SIZE = 200;
 
+// Return true, if the new element (lhs) has lower priority
 bool TestPriority::operator() (const TestCase& lhs, const TestCase& rhs) const
 {
   if (m_tc_sched_strat == FIFO)
   {
+      // FIXME: xxx won't work
       return false;
   } else if (m_tc_sched_strat == BFS) {
+      // Prioritize TC with smaller 'tt_last_node_index' (BFS)
       if(lhs.get_tt_last_node_index()
               > rhs.get_tt_last_node_index())
       {
           return true;
+      } else {
+          return false;
+      }
+  } else if (m_tc_sched_strat == COV_NEW_BFS) {
+      // Prioritize TC with smaller 'covNew_dist';
+      // For TCs with same 'covNew_dist', perform BFS;
+      int new_tc_dist = lhs.get_covNew_dist();
+      int current_tc_dist = rhs.get_covNew_dist();
+      assert(new_tc_dist >= 0);
+      assert(current_tc_dist >= 0);
+
+      if(new_tc_dist > current_tc_dist)
+      {
+          return true;
+      } else if(new_tc_dist == current_tc_dist) {
+          if(lhs.get_tt_last_node_index()
+                  > rhs.get_tt_last_node_index())
+          {
+              return true;
+          } else {
+              return false;
+          }
       } else {
           return false;
       }
@@ -41,7 +66,7 @@ bool TestPriority::operator() (const TestCase& lhs, const TestCase& rhs) const
 TestPool::TestPool(const fs::path& root)
     : root_(root)
     ,tc_count_(0)
-    ,next_(TestPriority(BFS))
+    ,next_(TestPriority(COV_NEW_BFS))
     ,m_duplicated_tc_count(0)
     ,m_meaningless_tc_count(0) {}
 
@@ -99,6 +124,7 @@ auto TestPool::insert(const std::vector<TestCase>& tcs) -> void
         if(tc.is_test_patch())
         {
             tc.assert_tc_patch();
+            set_tc_covNew_dist(tc);
             insert_internal(tc);
         } else {
             insert_base_tc(tc);
@@ -130,6 +156,27 @@ auto TestPool::insert_internal(const TestCase& tc) -> bool
     write_test_case(tc, root_ / "test-case" / std::to_string(++tc_count_));
 
     return true;
+}
+
+auto TestPool::set_tc_covNew_dist(const TestCase& tc) -> void
+{
+    assert(tc.is_test_patch());
+
+    int covNew_dist = -1;
+    uint64_t br_tb_pc = tc.get_br_tb_pc();
+
+    if(m_covered_br_tb_pc.find(br_tb_pc) == m_covered_br_tb_pc.end())
+    {
+        fprintf(stderr, "[CRETE DBG] new br_tb_pc = %p\n", (void *)br_tb_pc);
+        covNew_dist = 0;
+        m_covered_br_tb_pc[br_tb_pc] = 0;
+    } else {
+        covNew_dist = tc.get_covNew_dist() + 1;
+        ++m_covered_br_tb_pc[br_tb_pc];
+    }
+
+//    fprintf(stderr, "[CRETE DBG] covNew_dist = %d\n", covNew_dist);
+    tc.set_covNew_dist(covNew_dist);
 }
 
 auto TestPool::insert_base_tc(const TestCase& tc) -> BaseTestCache_ty::const_iterator
@@ -188,6 +235,11 @@ auto TestPool::get_complete_tc(const TestCase& patch_tc) -> boost::optional<Test
         assert(base_tc != base_tc_cache_.end());
 
         complete_tc = generate_complete_tc_from_patch(patch_tc, base_tc->second);
+        if(complete_tc.get_covNew_dist() == 0)
+        {
+            // Note: assuming the TC detected a new block transition will be helpful
+            complete_tc.clear_tt_explored_nodes();
+        }
     }
 
     // Only keep meaningful tc elems
@@ -199,6 +251,12 @@ auto TestPool::get_complete_tc(const TestCase& patch_tc) -> boost::optional<Test
     // check whether the new complete_tc duplicates with issued tcs
     if(issued_tc_hash_pool_.insert(complete_tc.get_elements()).second)
     {
+#if 0
+        fprintf(stderr, "[CRETE DBG] issued next tc[%lu]: br_tb_pc = %p, covNew_dist = %d\n",
+                issued_tc_hash_pool_.size(), (void *)complete_tc.get_br_tb_pc(),
+                complete_tc.get_covNew_dist());
+#endif
+
         complete_tc.set_issue_index(issued_tc_hash_pool_.size());
         return boost::optional<TestCase>{complete_tc};
     } else {
