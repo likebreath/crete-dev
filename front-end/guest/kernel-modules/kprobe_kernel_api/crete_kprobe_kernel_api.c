@@ -26,7 +26,7 @@ MODULE_DESCRIPTION("CRETE probes for kernel API functions to inject concolic val
 #endif
 static char crete_ksym_symbol[KSYM_SYMBOL_LEN*2];
 
-#define MAX_TARGET_MODULE_COUNT 8
+#define MAX_TARGET_MODULE_COUNT 10
 
 struct TargetModuleInfo
 {
