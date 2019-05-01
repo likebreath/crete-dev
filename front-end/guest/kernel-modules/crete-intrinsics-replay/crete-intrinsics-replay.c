@@ -15,6 +15,18 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Bo Chen (chenbo@pdx.edu)");
 MODULE_DESCRIPTION("CRETE intrinsics for tc replay");
 
+#define CHECKER_TC_REPLAYABLE
+
+#if defined(CHECKER_TC_REPLAYABLE)
+#define CRETE_TCR(x) do { x } while(0)
+#else
+#define CRETE_TCR(x) do { } while(0)
+#endif
+
+#if defined(CHECKER_TC_REPLAYABLE)
+#include "crete-check-tc-replayable.c"
+#endif
+
 struct TestCases
 {
     struct list_head list;
@@ -157,6 +169,8 @@ static void reset_module(void)
     reset_tc_list();
     target_pid = 0;
     process_suffix[0] = '\0';
+
+    CRETE_TCR(crete_check_tc_replayable_reset(););
 }
 
 static void clear_module(void)
@@ -524,7 +538,11 @@ void crete_make_concolic(void* addr, size_t size, const char* name)
         return;
     }
 
+#if defined(CHECKER_TC_REPLAYABLE)
+    add_crete_tcr_info(tmp_name);
+#else
     crete_make_conoclic_internal(addr, size, tmp_name);
+#endif
 }
 
 void crete_kernel_oops(void)
@@ -547,6 +565,14 @@ static int __init crete_intrinsics_replay_init(void)
         return -1;
     }
 
+    CRETE_TCR(
+    if (!proc_create(CRETE_TCR_PROCFS, 0666, NULL, &crete_tcr_fops)) {
+        printk(KERN_INFO "[CRETE ERROR] can't create profs: %s\n", CRETE_TCR_PROCFS);
+        remove_proc_entry(CRETE_TCR_PROCFS, NULL);
+        return -1;
+    }
+    );
+
 
     return 0;    // Non-zero return means that the module couldn't be loaded.
 }
@@ -555,6 +581,10 @@ static void __exit crete_intrinsics_replay_exit(void)
 {
     clear_module();
     remove_proc_entry(CRETE_REPLAY_PROCFS, NULL);
+
+    CRETE_TCR(
+    remove_proc_entry(CRETE_TCR_PROCFS, NULL);
+    );
 }
 
 uint32_t crete_get_current_target_pid(void)

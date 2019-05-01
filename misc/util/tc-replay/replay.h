@@ -53,6 +53,8 @@ private:
     fs::path m_exploitable_out;
     fs::path m_exploitable_script;
 
+    bool m_check_tcr_mode;
+
     mutable CreteKernalApiChecker m_crete_kapi_checker;
 
 public:
@@ -67,6 +69,9 @@ private:
     void auto_mode_pre_replay_tc(const string &tc) const;
     void auto_mode_post_replay_tc() const;
     void check_and_remove_crash_count() const;
+
+
+    void init_check_tc_replayable_mode(fs::path &input, uint64_t replay_count);
 
     void setup_launch();
 

@@ -27,7 +27,8 @@ CreteReplay::CreteReplay(int argc, char* argv[]) :
     m_cwd(fs::current_path()),
     m_seed_mode(false),
     m_init_sandbox(true),
-    m_enable_log(false)
+    m_enable_log(false),
+    m_check_tcr_mode(false)
 {
     process_options(argc, argv);
     setup_launch();
@@ -58,6 +59,8 @@ po::options_description CreteReplay::make_options()
 
         ("auto-replay,a", po::value<fs::path>(), "enable automatic replay on system start with given input folder (crete-dispatch output folder)")
         ("clear-auto-replay", po::bool_switch(), "clear the auto-replay for the given input folder")
+
+        ("check-tc-replayable", po::value<fs::path>(), "Measure how replayable the test case is under the given workload (config)")
         ;
 
     return desc;
@@ -86,6 +89,13 @@ void CreteReplay::process_options(int argc, char* argv[])
     {
         cout << m_ops_descr << endl;
         exit(0);
+    }
+
+    if(m_var_map.count("check-tc-replayable"))
+    {
+        fs::path input = m_var_map["check-tc-replayable"].as<fs::path>();
+        init_check_tc_replayable_mode(input, 10);
+        return;
     }
 
     if(m_var_map.count("auto-replay"))
@@ -828,9 +838,14 @@ static void write_to_procfs(const string& msg, const fs::path &procfs)
     ifs.close();
 }
 
-static void setup_kernel_mode(const fs::path& current_tc)
+static void setup_kernel_mode(const fs::path& current_tc, bool check_tcr_mode)
 {
     fs::path crete_replay_procfs(fs::path("/proc") / CRETE_REPLAY_PROCFS);
+    fs::path crete_tcr_procfs(fs::path("/proc") / CRETE_TCR_PROCFS);
+
+    if(check_tcr_mode){
+        assert(fs::exists(crete_replay_procfs) && fs::exists(crete_tcr_procfs));
+    }
 
     if(!fs::exists(crete_replay_procfs))
         return;
@@ -871,6 +886,8 @@ static void setup_kernel_mode(const fs::path& current_tc)
     }
 }
 
+static void tcr_mode_post_replay_tc(fs::ofstream& , uint64_t);
+
 void CreteReplay::replay()
 {
     init_timeout_handler();
@@ -908,7 +925,7 @@ void CreteReplay::replay()
         auto_mode_pre_replay_tc(*it);
 
         // check for kernel mode
-        setup_kernel_mode(*it);
+        setup_kernel_mode(*it, m_check_tcr_mode);
 
         ofs_replay_log << "====================================================================\n";
         ofs_replay_log << "Start to replay tc[" << dec << replayed_tc_count++ <<"] :" << it->c_str() << endl;
@@ -1017,6 +1034,7 @@ void CreteReplay::replay()
         ofs_replay_log << "====================================================================\n";
 
         auto_mode_post_replay_tc();
+        tcr_mode_post_replay_tc(ofs_replay_log, m_secondary_cmds.size() + 1);
     }
 
 //    collect_gcov_result();
@@ -1500,6 +1518,9 @@ void CreteReplay::auto_mode_pre_replay_tc(const string &tc) const
 
 void CreteReplay::auto_mode_post_replay_tc() const
 {
+    if(m_auto_mode_path.empty())
+        return;
+
     m_crete_kapi_checker.perform_check();
     const vector<string> &bug_info = m_crete_kapi_checker.get_bug_info();
     if(!bug_info.empty())
@@ -1615,6 +1636,198 @@ static void setup_auto_mode_resume_file(fs::path auto_mode_work_dir, fs::path cu
     log.close();
 
     sync();
+}
+
+static const char *check_tcr_mode_log = "/home/test/crete-replay-check-tcr-mode.log";
+
+void CreteReplay::init_check_tc_replayable_mode(fs::path &input, uint64_t replay_count)
+{
+    fs::ofstream log(check_tcr_mode_log, std::ios_base::app);
+    if(!log.good())
+    {
+        fprintf(stderr, "[CRETE ERROR] can't open log file: %s\n", auto_mode_log);
+        log.close();
+
+        exit(-1);
+    }
+
+    if(!fs::is_regular(input))
+    {
+        cerr << currentDateTime() << " [CRETE WARNING] Input config XML file does not exist for check-tcr-mode: "
+            << input.string().c_str() << endl;
+        log << currentDateTime() << " [CRETE WARNING] Input config XML file does not exist for check-tcr-mode: "
+            << input.string().c_str() << endl;
+        exit(0);
+    }
+
+    // 1. Generate serialized xml file
+    fs::path config_xml_file = fs::canonical(input);
+    config::HarnessConfiguration input_config = config::HarnessConfiguration(config_xml_file);
+    fs::path config_xml_file_serialized = fs::path(config_xml_file.string() + ".serialized");
+
+    fs::ofstream ofs(config_xml_file_serialized);
+    if(!ofs.good())
+    {
+        BOOST_THROW_EXCEPTION(Exception() << err::file_open_failed(config_xml_file_serialized.string()));
+    }
+    try
+    {
+        boost::archive::text_oarchive oa(ofs);
+        oa << input_config;
+    }
+    catch(std::exception& e)
+    {
+        cerr << boost::diagnostic_information(e) << endl;
+        BOOST_THROW_EXCEPTION(e);
+    };
+    ofs.close();
+
+    // 2. generate dummy test cases
+    TestCase tc;
+    TestCaseElement elem;
+    elem.data.resize(1, 0);
+    elem.data_size = elem.data.size();
+    std::string name = "dummy";
+    elem.name = std::vector<uint8_t>(name.begin(), name.end());
+    elem.name_size = elem.name.size();
+    tc.add_element(elem);
+
+    fs::path dummy_tc_dir = config_xml_file.parent_path() / "dummy_tc_for_check_tcr";
+    if(fs::exists(dummy_tc_dir))
+        fs::remove_all(dummy_tc_dir);
+    fs::create_directories(dummy_tc_dir);
+    for(int i = 0; i < replay_count; ++i)
+    {
+        std::ofstream tc_file(((dummy_tc_dir) / boost::to_string(i)).string().c_str(),
+                std::ios_base::out | std::ios_base::binary);
+        assert(tc_file.good());
+        tc.write(tc_file);
+        tc_file.close();
+    }
+
+    // 3. set the paths required for replay
+    m_check_tcr_mode = true;
+    m_config = config_xml_file_serialized;
+    m_tc_dir = dummy_tc_dir;
+    m_enable_log = true;
+}
+
+// note: xxx stay consistent with 'crete-check-tc-replayable.c'
+#define CRETE_TC_REPLAYABLE_ARRAY_SIZE 1024
+#define CRETE_TC_ELEM_NAME_SIZE 128
+
+extern "C" {
+int crete_raw_read_file(const char *file_name, char *buf, int size);
+}
+
+// <start_index, size>
+static pair<int, int> find_matched_suffix_range(const vector<string> &target, const string &suffix)
+{
+    int start = -1;
+    int end = -1;
+
+    for(int i = 0; i < target.size(); ++i)
+    {
+        if(boost::algorithm::ends_with(target[i], suffix))
+        {
+            if(start == -1)
+                start = i;
+            end = i;
+        }
+    }
+
+    return std::make_pair(start, end - start + 1);
+}
+
+static void tcr_mode_post_replay_tc(fs::ofstream& log, uint64_t cmd_count)
+{
+    static vector<string> refer_sequence;
+    static uint64_t matched_count = 0;
+    static uint64_t total_sequence_count = 0;
+
+    char buf[CRETE_TC_REPLAYABLE_ARRAY_SIZE][CRETE_TC_ELEM_NAME_SIZE];
+    int buf_size = CRETE_TC_REPLAYABLE_ARRAY_SIZE*CRETE_TC_ELEM_NAME_SIZE;
+
+    memset(buf, 0, buf_size);
+
+    // 1. read all information to buff
+    int c = crete_raw_read_file((fs::path("/proc") / CRETE_TCR_PROCFS).string().c_str(),
+            (char *)buf, buf_size);
+    if(c <= 0)
+    {
+        BOOST_THROW_EXCEPTION(std::runtime_error("[CRETE ERROR TCR] tcr_mode_post_replay_tc(): "
+                "read_from_procfs failed!\n"));
+    }
+
+    vector <string> new_sequence;
+    new_sequence.reserve(c);
+    for(int i = 0; i < c; i++)
+    {
+        new_sequence.push_back(string(buf[i]));
+    }
+
+    if(refer_sequence.empty())
+    {
+        refer_sequence.reserve(c);
+        refer_sequence = new_sequence;
+
+        log << "[CRETE DBG] TCR: initial sequence:\n";
+        for(int i = 0; i < c; i++)
+        {
+            log << '[' << i << "]:" << refer_sequence[i] << endl;
+        }
+
+        return;
+    }
+
+    uint64_t new_matched_count = 0;
+    for(int i = 1; i <= cmd_count; ++i)
+    {
+        string suffix = "_p" + boost::to_string(i);
+
+        pair<int, int> range_refer = find_matched_suffix_range(refer_sequence, suffix);
+        pair<int, int> range_new = find_matched_suffix_range(new_sequence, suffix);
+        if(range_refer.first == -1 || range_new.first == -1)
+            continue;
+
+        int size = range_refer.second < range_new.second ? range_refer.second: range_new.second;
+
+        for(int j = 0; j < size; ++j)
+        {
+            if(refer_sequence[range_refer.first + j] != new_sequence[range_new.first + j])
+                break;
+
+            ++new_matched_count;
+        }
+    }
+
+    assert(new_matched_count <= refer_sequence.size() &&
+            new_matched_count <= new_sequence.size());
+
+    matched_count = new_matched_count*2 + matched_count;
+    total_sequence_count = refer_sequence.size() + new_sequence.size() + total_sequence_count;
+
+    if(new_matched_count*2 != (refer_sequence.size() + new_sequence.size()))
+    {
+        cerr <<"[CRETE DBG][TCR] mismatch found: new_matched_count = " << new_matched_count
+                << ", refer.size() = " << refer_sequence.size()
+                <<  ", new.size() = " << new_sequence.size() << endl;
+
+        log <<"[CRETE DBG][TCR] mismatch found: new_matched_count = " << new_matched_count
+                << ", refer.size() = " << refer_sequence.size()
+                <<  ", new.size() = " << new_sequence.size() << endl;
+
+        log << "mismatched new_sequence: \n";
+        for(int i = 0; i < new_sequence.size(); ++i)
+        {
+            log << '[' << i << "]:" << new_sequence[i] << endl;
+        }
+    }
+
+    cerr << "[CRETE DBG][TCR] matched rate = " << (matched_count * 1.0)/total_sequence_count
+            << "(" << matched_count << '/' << total_sequence_count << ")\n";
+    log << "[CRETE DBG][TCR] matched rate = " << (matched_count * 1.0)/total_sequence_count
+            << "(" << matched_count << '/' << total_sequence_count << ")\n";
 }
 
 } // namespace crete

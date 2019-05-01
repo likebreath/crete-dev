@@ -352,10 +352,10 @@ void CreteKernalApiChecker::print_rm_array()
     fprintf(stderr, "----------------------print_rm_array()---------------\n");
     for(int i = 0; i < m_rm_array_size; ++i)
     {
-        fprintf(stderr, "[%d] %s, value = %zu, ret= %zu, call_site = %zu (%s) \n",
+        fprintf(stderr, "[%d] %s, value = %p, ret= %p, call_site = %p (%s) \n",
                 i, m_rm_array[i].m_target_func,
-                m_rm_array[i].m_value,  m_rm_array[i].m_ret,
-                m_rm_array[i].m_call_site, m_rm_array[i].m_call_site_module);
+                (void *)m_rm_array[i].m_value,  (void *)m_rm_array[i].m_ret,
+                (void *)m_rm_array[i].m_call_site, m_rm_array[i].m_call_site_module);
     }
     fprintf(stderr, "-----------------------------------------------------\n");
 }
